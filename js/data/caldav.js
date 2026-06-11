@@ -53,11 +53,26 @@ export async function request(method, targetUrl, opts = {}) {
   if (opts.contentType) headers["Content-Type"] = opts.contentType;
   if (opts.ifMatch) headers["X-Dav-If-Match"] = opts.ifMatch;
 
-  const response = await fetch(account.serverUrl, {
-    method: "POST",
-    headers,
-    body: opts.body || undefined,
-  });
+  let response;
+  try {
+    response = await fetch(account.serverUrl, {
+      method: "POST",
+      headers,
+      body: opts.body || undefined,
+    });
+  } catch (err) {
+    // Ein hier geworfener Fehler bedeutet: Die Anfrage kam GAR NICHT durch
+    // (kein HTTP-Status). Typische Ursachen verständlich erklären.
+    const pageHttps = location.protocol === "https:";
+    const proxyHttp = /^http:\/\//i.test(account.serverUrl);
+    let hint = "Der Proxy/Server ist nicht erreichbar.";
+    if (pageHttps && proxyHttp) {
+      hint = "Die App läuft über HTTPS, der Proxy aber über HTTP – der Browser blockiert das (Mixed Content). Lösung: Server auf HTTPS umstellen ODER die App ebenfalls über http:// öffnen.";
+    } else {
+      hint = "Proxy nicht erreichbar. Prüfe die Proxy-URL, ob die Datei wirklich dort liegt, und ob der Server online ist.";
+    }
+    throw new Error(`Verbindung fehlgeschlagen (${err.message}). ${hint}`);
+  }
 
   const text = await response.text();
   return {
