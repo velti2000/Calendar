@@ -19,6 +19,8 @@ import { openEventEditor } from "./views/eventEditor.js";
 import { openSearch as openSearchView } from "./views/searchView.js";
 import { openSettings as openSettingsView } from "./views/settingsView.js";
 import { scheduleReminders } from "./reminders.js";
+import { syncFromServer } from "./data/dataSource.js";
+import { toast } from "./ui.js";
 import { render, el } from "./utils/dom.js";
 
 /* ----------------------------- UI-Zustand --------------------------------- */
@@ -68,6 +70,19 @@ const ctx = {
 
   /** Einstellungen oeffnen. */
   openSettings() { openSettingsView(ctx); },
+
+  /** Synchronisation mit dem Server starten (Server -> App). */
+  async doSync() {
+    const settings = getSettings();
+    if (settings.dataSource !== "caldav") {
+      toast("Erst CalDAV in den Einstellungen aktivieren.");
+      return;
+    }
+    toast("Synchronisiere …");
+    const res = await syncFromServer();
+    if (res.ok) { rerender(); toast(`Synchronisiert: ${res.count} Termine`); }
+    else toast(`Sync-Fehler: ${res.message}`);
+  },
 
   /** Theme erneut anwenden (nach Einstellungsaenderung). */
   applyTheme,

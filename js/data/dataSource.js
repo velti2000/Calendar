@@ -11,6 +11,7 @@
 
 import { getSettings, replaceData, getCalendars, getState } from "../store.js";
 import * as caldav from "./caldav.js";
+import { expandRecurring } from "./ical.js";
 
 /**
  * Prueft die Verbindung zum Server (bzw. meldet im Demo-Modus Erfolg).
@@ -62,6 +63,13 @@ export async function syncFromServer() {
       allEvents = allEvents.concat(events);
     }
 
+    // 3b) Serientermine (RRULE), z.B. Geburtstage, in Einzelvorkommen aufloesen
+    //     – Fenster: 1 Jahr zurueck bis 2 Jahre voraus.
+    const now = new Date();
+    const windowStart = new Date(now.getFullYear() - 1, 0, 1);
+    const windowEnd = new Date(now.getFullYear() + 2, 11, 31);
+    allEvents = expandRecurring(allEvents, windowStart, windowEnd);
+
     // 4) Lokalen Stand komplett ersetzen.
     replaceData(calendars, allEvents);
     return { ok: true, count: allEvents.length };
@@ -92,7 +100,9 @@ export async function pushChange(action, event) {
     if (!calendar) return { ok: false, message: "Kalender nicht gefunden." };
 
     if (action === "put") {
-      await caldav.pushEvent(calendar.url, event);
+      const r = await caldav.pushEvent(calendar.url, event);
+      // Adresse (href) + Version (etag) an den Aufrufer zurueckgeben.
+      return { ok: true, href: r.href, etag: r.etag };
     } else if (action === "delete") {
       await caldav.removeEvent(event);
     }

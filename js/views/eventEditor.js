@@ -16,6 +16,7 @@ import {
 import {
   toDateInputValue, toTimeInputValue, dateFromInputs, addDays,
 } from "../utils/dates.js";
+import { pushChange } from "../data/dataSource.js";
 
 /**
  * Oeffnet den Termin-Editor.
@@ -96,7 +97,7 @@ export function openEventEditor(event, defaultDate, onSaved) {
   );
 
   /* --------- Speichern ---------- */
-  const handleSave = () => {
+  const handleSave = async () => {
     const title = titleInput.value.trim() || "(ohne Titel)";
     const allDay = allDayCheckbox.checked;
 
@@ -129,16 +130,23 @@ export function openEventEditor(event, defaultDate, onSaved) {
       reminders,
     };
 
-    if (isNew) {
-      addEvent(payload);
-      toast("Termin hinzugefügt");
-    } else {
-      updateEvent(event.uid, payload);
-      toast("Termin gespeichert");
-    }
+    // 1) Lokal speichern (immer), damit die Anzeige sofort stimmt.
+    const saved = isNew ? addEvent(payload) : updateEvent(event.uid, payload);
 
     closeModal();
     if (onSaved) onSaved();
+
+    // 2) Auf den Server schreiben – nur wenn CalDAV aktiv UND Nur-Lesen aus.
+    //    (Im Demo-/Nur-Lesen-Modus macht pushChange bewusst nichts.)
+    const res = await pushChange("put", saved);
+    if (res.ok) {
+      // Server liefert ggf. Adresse (href) + Version (etag) zurueck -> merken,
+      // damit spaeteres Aendern/Loeschen den richtigen Eintrag trifft.
+      if (res.href || res.etag) updateEvent(saved.uid, { href: res.href, etag: res.etag });
+      toast(isNew ? "Termin hinzugefügt" : "Termin gespeichert");
+    } else {
+      toast("Lokal gespeichert – Server-Fehler: " + res.message);
+    }
   };
 
   /* --------- Loeschen (mit Bestaetigung) ---------- */
@@ -148,12 +156,14 @@ export function openEventEditor(event, defaultDate, onSaved) {
       message: `„${event.title}“ wird gelöscht. Das kann nicht rückgängig gemacht werden.`,
       confirmLabel: "Löschen",
       cancelLabel: "Abbrechen",
-      onConfirm: () => {
+      onConfirm: async () => {
+        // Erst auf dem Server loeschen (solange href/etag noch vorhanden sind) ...
+        const res = await pushChange("delete", event);
+        // ... dann lokal entfernen.
         deleteEvent(event.uid);
-        toast("Termin gelöscht");
-        // confirmDialog schliesst sich selbst; den Editor zusaetzlich schliessen.
         closeModal();
         if (onSaved) onSaved();
+        toast(res.ok ? "Termin gelöscht" : "Lokal gelöscht – Server-Fehler: " + res.message);
       },
     });
   };

@@ -246,6 +246,11 @@ button {
 /* Datum-Sprung-Knopf (Doppelpfeil) */
 .icon-btn.jump-btn { width: 50px; height: 46px; font-size: 26px; color: var(--color-accent); }
 
+/* Synchronisieren-Knopf (obere Leiste rechts) */
+.icon-btn.sync-btn { font-size: 24px; color: var(--text-secondary); }
+.icon-btn.sync-btn.is-busy { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---- Auswahlraeder (Datum-Sprung) ---- */
 .wheel-picker {
   position: relative;

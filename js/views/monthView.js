@@ -146,19 +146,19 @@ export function renderMonthView(ctx) {
   const refDate = ctx.refDate;
   const events = getVisibleEvents();
 
-  /* ----- Obere Leiste: Zahnrad (links) · Monat+Jahr (mittig) · Suche (rechts) ----- */
+  /* ----- Obere Leiste: Zahnrad (links) · Monat+Jahr (mittig) · Sync (rechts) ----- */
   const topBar = bar3(
     el("button", { class: "icon-btn big-gear", title: "Einstellungen", text: "⚙︎",
       on: { click: () => ctx.openSettings() } }),
     el("div", { class: "bar-title", text: formatMonthTitle(refDate) }),
-    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
-      on: { click: () => ctx.openSearch() } }),
+    el("button", { class: "icon-btn sync-btn", title: "Synchronisieren", text: "⟳",
+      on: { click: () => ctx.doSync() } }),
   );
 
-  /* ----- Untere Leiste: Datum-Sprung (links) · ‹ • › (mittig) ----- */
+  /* ----- Untere Leiste: Suche (links) · ‹ • › (mittig) · Datum-Sprung (rechts) ----- */
   const navBar = bar3(
-    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
-      on: { click: () => openDatePicker(refDate, (d) => ctx.goToMonth(d)) } }),
+    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
+      on: { click: () => ctx.openSearch() } }),
     el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Monat", text: "‹",
         on: { click: () => ctx.goToMonth(addMonths(refDate, -1)) } }),
@@ -167,7 +167,8 @@ export function renderMonthView(ctx) {
       el("button", { class: "icon-btn nav-arrow", title: "Nächster Monat", text: "›",
         on: { click: () => ctx.goToMonth(addMonths(refDate, 1)) } }),
     ]),
-    el("span", { class: "bar-spacer" }), // haelt die Pfeile mittig
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
+      on: { click: () => openDatePicker(refDate, (d) => ctx.goToMonth(d)) } }),
   );
 
   /* ----- Wochentags-Zeile (Mo Di Mi ...) mit fuehrender KW-Spalte ----- */

@@ -72,14 +72,14 @@ export function renderDayView(ctx) {
       WEEKDAYS_LONG[mondayIndex(date)],
       el("span", { class: "subtitle", text: ` ${date.getDate()}.${date.getMonth() + 1}.` }),
     ]),
-    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
-      on: { click: () => ctx.openSearch() } }),
+    el("button", { class: "icon-btn sync-btn", title: "Synchronisieren", text: "⟳",
+      on: { click: () => ctx.doSync() } }),
   );
 
-  /* ----- Untere Leiste: Datum-Sprung · ‹ • › (Tagesnavigation) ----- */
+  /* ----- Untere Leiste: Suche · ‹ • › (Tagesnavigation) · Datum-Sprung ----- */
   const navBar = bar3(
-    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
-      on: { click: () => openDatePicker(date, (d) => ctx.goToDay(d)) } }),
+    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
+      on: { click: () => ctx.openSearch() } }),
     el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Tag", text: "‹",
         on: { click: () => ctx.goToDay(addDays(date, -1)) } }),
@@ -88,7 +88,8 @@ export function renderDayView(ctx) {
       el("button", { class: "icon-btn nav-arrow", title: "Nächster Tag", text: "›",
         on: { click: () => ctx.goToDay(addDays(date, 1)) } }),
     ]),
-    el("span", { class: "bar-spacer" }),
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
+      on: { click: () => openDatePicker(date, (d) => ctx.goToDay(d)) } }),
   );
 
   /* ----- Inhalt ----- */

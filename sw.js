@@ -13,7 +13,7 @@
 
 // Version des Caches. Bei jeder Aenderung an den Dateien hochzaehlen,
 // damit Browser die alten Dateien verwerfen und neu laden.
-const CACHE_VERSION = "calendar-v8";
+const CACHE_VERSION = "calendar-v9";
 
 // Diese Dateien bilden die "App-Shell" und werden beim Installieren gecacht.
 // Relativ zum Scope (dem Ordner, in dem sw.js liegt).
