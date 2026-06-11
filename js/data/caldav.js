@@ -76,8 +76,57 @@ export async function request(method, targetUrl, opts = {}) {
  * @returns {Promise<Array<{id:string,name:string,color:string,url:string}>>}
  */
 export async function discoverCalendars() {
-  const propfindBody =
-    `<?xml version="1.0" encoding="utf-8" ?>
+  const base = MAILBOX_CALDAV_BASE;
+
+  // 1) Wer ist angemeldet? -> Principal-URL des Nutzers.
+  const principalUrl = await findCurrentUserPrincipal(base);
+
+  // 2) Wo liegen die Kalender des Nutzers? -> calendar-home-set.
+  const homeUrl = await findCalendarHome(principalUrl || base);
+
+  // 3) Welche Kalender gibt es dort? -> Liste der Kalender-Sammlungen.
+  return await listCalendars(homeUrl || base);
+}
+
+const XML_CT = 'application/xml; charset="utf-8"';
+
+/**
+ * Schritt 1 der Discovery: die Principal-URL des angemeldeten Nutzers finden.
+ * (PROPFIND auf die Basis, fragt <current-user-principal> ab.)
+ */
+async function findCurrentUserPrincipal(base) {
+  const body = `<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/></d:prop></d:propfind>`;
+  const res = await request("PROPFIND", base, { depth: 0, contentType: XML_CT, body });
+  if (res.status === 401) throw new Error("Anmeldung fehlgeschlagen – Benutzername/Passwort prüfen.");
+  if (res.status >= 400) throw new Error(`Discovery fehlgeschlagen (HTTP ${res.status}). Proxy-URL korrekt?`);
+
+  const doc = new DOMParser().parseFromString(res.text, "application/xml");
+  const node = doc.getElementsByTagNameNS("DAV:", "current-user-principal")[0];
+  const href = node && node.getElementsByTagNameNS("DAV:", "href")[0];
+  return href ? new URL(href.textContent.trim(), base).href : null;
+}
+
+/**
+ * Schritt 2 der Discovery: den Kalender-Heimatordner (calendar-home-set) finden.
+ */
+async function findCalendarHome(principalUrl) {
+  const body = `<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><c:calendar-home-set/></d:prop></d:propfind>`;
+  const res = await request("PROPFIND", principalUrl, { depth: 0, contentType: XML_CT, body });
+  if (res.status >= 400) throw new Error(`Kalender-Ordner nicht gefunden (HTTP ${res.status}).`);
+
+  const doc = new DOMParser().parseFromString(res.text, "application/xml");
+  const node = doc.getElementsByTagNameNS("urn:ietf:params:xml:ns:caldav", "calendar-home-set")[0];
+  const href = node && node.getElementsByTagNameNS("DAV:", "href")[0];
+  return href ? new URL(href.textContent.trim(), principalUrl).href : null;
+}
+
+/**
+ * Schritt 3 der Discovery: alle Kalender im Heimatordner auflisten (Tiefe 1).
+ */
+async function listCalendars(homeUrl) {
+  const body = `<?xml version="1.0" encoding="utf-8" ?>
 <d:propfind xmlns:d="DAV:" xmlns:cs="http://calendarserver.org/ns/" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:ic="http://apple.com/ns/ical/">
   <d:prop>
     <d:resourcetype/>
@@ -86,20 +135,10 @@ export async function discoverCalendars() {
     <ic:calendar-color/>
   </d:prop>
 </d:propfind>`;
+  const res = await request("PROPFIND", homeUrl, { depth: 1, contentType: XML_CT, body });
+  if (res.status >= 400) throw new Error(`Kalenderliste fehlgeschlagen (HTTP ${res.status}).`);
 
-  // Wir starten an der Konto-Kalenderbasis. mailbox.org leitet i.d.R. korrekt.
-  const base = MAILBOX_CALDAV_BASE + encodeURIComponent(getSettings().account.username) + "/";
-  const res = await request("PROPFIND", base, {
-    depth: 1,
-    contentType: 'application/xml; charset="utf-8"',
-    body: propfindBody,
-  });
-
-  if (res.status >= 400) {
-    throw new Error(`PROPFIND fehlgeschlagen (HTTP ${res.status}).`);
-  }
-
-  return parseCalendarList(res.text, base);
+  return parseCalendarList(res.text, homeUrl);
 }
 
 /** Parst die Multistatus-Antwort von PROPFIND in eine Kalenderliste. */

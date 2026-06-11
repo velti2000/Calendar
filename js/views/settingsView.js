@@ -121,6 +121,17 @@ export function openSettings(ctx) {
   /* ---------------- mailbox.org Zugangsdaten ---------------- */
   body.appendChild(el("div", { class: "section-title", text: "mailbox.org-Konto (CalDAV)" }));
 
+  // Schalter: Demo-Daten oder echte CalDAV-Verbindung verwenden.
+  body.appendChild(switchRow({
+    label: "CalDAV verwenden (statt Demo)",
+    desc: "An: App spricht über den Proxy mit mailbox.org. Aus: Demo-Daten.",
+    checked: settings.dataSource === "caldav",
+    onChange: (checked) => {
+      updateSettings({ dataSource: checked ? "caldav" : "demo" });
+      return true;
+    },
+  }));
+
   const serverInput = el("input", { type: "url", placeholder: "https://deinserver.de/caldav-proxy.php", value: settings.account.serverUrl });
   const userInput = el("input", { type: "text", placeholder: "E-Mail-Adresse", value: settings.account.username, autocomplete: "username" });
   const passInput = el("input", { type: "password", placeholder: "App-Passwort", value: settings.account.password, autocomplete: "current-password" });
