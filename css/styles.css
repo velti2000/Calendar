@@ -631,6 +631,20 @@ button {
   padding-bottom: var(--safe-bottom);
   animation: sheet-up 0.22s ease;
 }
+
+/*
+ * Der direkte Inhalts-Container (z.B. <div> mit Kopf + Body) muss die Hoehe
+ * des Sheets fuellen und selbst eine Flex-Spalte sein. Nur so bekommt der
+ * .modal-body eine begrenzte Hoehe und kann INNERHALB des Dialogs scrollen
+ * (statt dass der Hintergrund mitscrollt).
+ */
+.modal-sheet > * {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 @keyframes sheet-up {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
@@ -645,6 +659,7 @@ button {
 }
 
 .modal-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -656,8 +671,12 @@ button {
 .modal-header .modal-link.danger { color: #d64545; }
 
 .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: var(--space-4);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;   /* sanftes Scrollen auf iOS */
+  overscroll-behavior: contain;         /* verhindert Mitscrollen des Hintergrunds */
 }
 
 .confirm-text {
@@ -666,6 +685,7 @@ button {
   color: var(--text-primary);
 }
 .confirm-actions {
+  flex: 0 0 auto;
   display: flex;
   border-top: 1px solid var(--border-color);
 }
@@ -814,6 +834,7 @@ button {
 
 /* Suche */
 .search-input-row {
+  flex: 0 0 auto;
   padding: var(--space-3);
   border-bottom: 1px solid var(--border-color);
 }
@@ -826,7 +847,16 @@ button {
   background: var(--bg-surface-2);
   color: var(--text-primary);
 }
-.search-results { list-style: none; margin: 0; padding: 0; }
+.search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
 .search-result {
   display: flex;
   gap: var(--space-3);
