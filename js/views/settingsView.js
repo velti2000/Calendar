@@ -53,6 +53,19 @@ export function openSettings(ctx) {
   navSelect.addEventListener("change", () => { updateSettings({ navPosition: navSelect.value }); ctx.rerender(); });
   body.appendChild(field("Navigationsleiste", navSelect));
 
+  // Schriftgroesse der Termine in der Monatsansicht
+  const fontSelect = el("select", {},
+    [
+      { v: 8, l: "Sehr klein" },
+      { v: 9, l: "Klein" },
+      { v: 10, l: "Mittel" },
+      { v: 11, l: "Normal" },
+      { v: 13, l: "Groß" },
+    ].map((o) => el("option", { value: String(o.v), selected: settings.eventFontSize === o.v ? "selected" : null }, [o.l]))
+  );
+  fontSelect.addEventListener("change", () => { updateSettings({ eventFontSize: Number(fontSelect.value) }); ctx.rerender(); });
+  body.appendChild(field("Schriftgröße Termine", fontSelect));
+
   /* ---------------- Sicherheit: Nur-Lesen ---------------- */
   body.appendChild(el("div", { class: "section-title", text: "Sicherheit" }));
   body.appendChild(switchRow({

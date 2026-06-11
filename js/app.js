@@ -94,6 +94,9 @@ function rerender() {
     ? el("div", { class: "readonly-banner", text: "🔒 Nur-Lesen aktiv – keine Änderungen am Server" })
     : null;
 
+  // Schriftgroesse der Termine (in der Monatsansicht) anwenden.
+  document.documentElement.style.setProperty("--seg-font-size", (settings.eventFontSize || 10) + "px");
+
   // Die obere Leiste (Zahnrad/Titel/Suche) ist immer oben.
   // Die Navigationsleiste (Sprung + ‹•›) liegt je nach Einstellung unten oder
   // direkt unter der oberen Leiste.

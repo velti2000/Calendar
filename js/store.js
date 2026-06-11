@@ -31,6 +31,7 @@ function defaultSettings() {
   return {
     theme: "auto",          // "auto" | "light" | "dark"
     navPosition: "bottom",  // "bottom" | "top" – Position der Navigationsleiste
+    eventFontSize: 10,      // Schriftgroesse der Termine in der Monatsansicht (px)
     readOnly: true,          // Sicherheit: zunaechst keine Server-Schreibzugriffe
     defaultReminder: 30,     // Standard-Erinnerung in Minuten (-1 = keine)
     notificationsEnabled: false,

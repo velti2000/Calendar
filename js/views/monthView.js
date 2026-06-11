@@ -157,7 +157,7 @@ export function renderMonthView(ctx) {
 
   /* ----- Untere Leiste: Datum-Sprung (links) · ‹ • › (mittig) ----- */
   const navBar = bar3(
-    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "⏭",
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
       on: { click: () => openDatePicker(refDate, (d) => ctx.goToMonth(d)) } }),
     el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Monat", text: "‹",

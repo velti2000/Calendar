@@ -78,7 +78,7 @@ export function renderDayView(ctx) {
 
   /* ----- Untere Leiste: Datum-Sprung · ‹ • › (Tagesnavigation) ----- */
   const navBar = bar3(
-    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "⏭",
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "››",
       on: { click: () => openDatePicker(date, (d) => ctx.goToDay(d)) } }),
     el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Tag", text: "‹",
