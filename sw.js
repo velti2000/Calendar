@@ -13,7 +13,7 @@
 
 // Version des Caches. Bei jeder Aenderung an den Dateien hochzaehlen,
 // damit Browser die alten Dateien verwerfen und neu laden.
-const CACHE_VERSION = "calendar-v2";
+const CACHE_VERSION = "calendar-v3";
 
 // Diese Dateien bilden die "App-Shell" und werden beim Installieren gecacht.
 // Relativ zum Scope (dem Ordner, in dem sw.js liegt).
@@ -33,6 +33,7 @@ const APP_SHELL = [
   "./js/utils/dom.js",
   "./js/views/monthView.js",
   "./js/views/dayView.js",
+  "./js/views/datePicker.js",
   "./js/views/eventEditor.js",
   "./js/views/searchView.js",
   "./js/views/settingsView.js",

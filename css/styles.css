@@ -61,6 +61,7 @@
 
   --shadow-modal: 0 10px 40px rgba(0, 0, 0, 0.25);
   --header-height: 52px;
+  --kw-width: 30px; /* Breite der Kalenderwochen-Spalte links */
 }
 
 /* Dark Mode: greift automatisch nach Systemeinstellung ... */
@@ -213,22 +214,90 @@ button {
   padding-bottom: var(--safe-bottom);
 }
 .app-footer:empty { display: none; } /* bei "Navigation oben" ausblenden */
-.app-footer .header-bar { height: 58px; }
 
 /* Schwebenden "+"-Knopf anheben, wenn die Navigation unten liegt */
 .app[data-nav="bottom"] .fab {
   bottom: calc(58px + var(--space-3) + var(--safe-bottom));
 }
 
-/* Wochentags-Kopf (Mo Di Mi ...) der Monatsansicht */
+/* ---- Dreigeteilte Leisten (obere Leiste + Navigationsleiste) ---- */
+.app-bar {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  padding: 0 var(--space-2);
+  gap: var(--space-1);
+}
+.app-footer .app-bar { min-height: 58px; }
+
+.bar-left  { flex: 1 1 0; display: flex; align-items: center; gap: var(--space-1); justify-content: flex-start; }
+.bar-center{ flex: 0 1 auto; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.bar-right { flex: 1 1 0; display: flex; align-items: center; gap: var(--space-1); justify-content: flex-end; }
+
+.bar-title { font-size: 18px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; }
+.bar-title .subtitle { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+.bar-spacer { display: inline-block; width: 44px; } /* balanciert die linke Taste */
+.nav-group { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Grosses Zahnrad in der oberen Leiste (ca. doppelte Groesse) */
+.icon-btn.big-gear { width: 50px; height: 50px; font-size: 34px; color: var(--text-secondary); }
+
+/* Datum-Sprung-Knopf (Doppelpfeil) */
+.icon-btn.jump-btn { width: 50px; height: 46px; font-size: 26px; color: var(--color-accent); }
+
+/* ---- Auswahlraeder (Datum-Sprung) ---- */
+.wheel-picker {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+.wheel-highlight {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: 40px;
+  transform: translateY(-50%);
+  background: var(--bg-surface-2);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.wheel {
+  position: relative;
+  height: 200px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 0;
+  max-width: 130px;
+  text-align: center;
+  scrollbar-width: none;
+}
+.wheel::-webkit-scrollbar { display: none; }
+.wheel-item {
+  height: 40px;
+  line-height: 40px;
+  scroll-snap-align: center;
+  font-size: 17px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, font-size 0.15s;
+}
+.wheel-item.is-selected { color: var(--text-primary); font-weight: 700; font-size: 19px; }
+.wheel-spacer { height: 80px; } /* = (200/2 - 40/2)*... ermoeglicht Zentrieren der Randwerte */
+
+/* Wochentags-Kopf (Mo Di Mi ...) der Monatsansicht – mit fuehrender KW-Spalte */
 .weekday-row {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: var(--kw-width) repeat(7, 1fr);
   border-top: 1px solid var(--border-color);
 }
 .weekday-cell {
   text-align: center;
-  padding: 6px 0;
+  padding: 5px 0;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -236,6 +305,11 @@ button {
   letter-spacing: 0.4px;
 }
 .weekday-cell.is-weekend { color: var(--weekend-text); }
+.weekday-cell.kw-head {
+  font-size: 9px;
+  color: var(--text-muted);
+  border-right: 1px solid var(--grid-line);
+}
 
 /* 4. -------------------------------------------------------------- MONATSANSICHT */
 .app-main {
@@ -262,14 +336,25 @@ button {
   overflow-y: auto;
 }
 
-/* Eine Wochenzeile */
+/* Eine Wochenzeile – erste Spalte ist die Kalenderwoche (KW) */
 .week-row {
   position: relative;
   flex: 1 0 auto;
   min-height: 78px;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: var(--kw-width) repeat(7, 1fr);
   border-bottom: 1px solid var(--grid-line);
+}
+
+/* KW-Zelle ganz links, vertikal mittig ueber die ganze Zeilenhoehe */
+.kw-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-surface-2);
+  border-right: 1px solid var(--grid-line);
 }
 
 /* Hintergrund-Tageszelle (haelt Tageszahl + Tipp-Flaeche) */
@@ -284,13 +369,13 @@ button {
 .day-bg.is-othermonth .day-number { color: var(--othermonth-text); }
 .day-bg.is-today { background: var(--today-bg); }
 
-/* Tageszahl oben rechts in der Zelle */
+/* Tageszahl oben rechts in der Zelle – bewusst flach gehalten */
 .day-number {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-primary);
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
   margin-left: auto;       /* nach rechts schieben */
   display: flex;
   align-items: center;
@@ -305,12 +390,13 @@ button {
   font-weight: 600;
 }
 
-/* Termin-Ebene: liegt ueber den Tageszellen, beginnt unter der Tageszahl */
+/* Termin-Ebene: liegt ueber den Tageszellen (rechts der KW-Spalte),
+   beginnt unter der Tageszahl */
 .events-layer {
   position: absolute;
-  left: 0;
+  left: var(--kw-width);
   right: 0;
-  top: 22px;
+  top: 19px;
   bottom: 1px;
   display: grid;
   grid-template-columns: repeat(7, 1fr);

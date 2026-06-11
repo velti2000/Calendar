@@ -64,6 +64,27 @@ export function render(node, children) {
 }
 
 /**
+ * Baut eine dreigeteilte Leiste (links / mittig / rechts). Der mittlere
+ * Bereich bleibt dabei optisch zentriert, egal wie breit links/rechts sind.
+ * @param {Node|Node[]} left
+ * @param {Node|Node[]} center
+ * @param {Node|Node[]} right
+ * @returns {HTMLElement}
+ */
+export function bar3(left, center, right) {
+  return el("div", { class: "app-bar" }, [
+    el("div", { class: "bar-left" }, asArray(left)),
+    el("div", { class: "bar-center" }, asArray(center)),
+    el("div", { class: "bar-right" }, asArray(right)),
+  ]);
+}
+
+function asArray(x) {
+  if (x == null) return [];
+  return Array.isArray(x) ? x : [x];
+}
+
+/**
  * Einfacher Icon-Helfer. Wir nutzen Emoji/Unicode-Symbole, damit keine
  * zusaetzliche Icon-Bibliothek noetig ist. Kann spaeter durch SVGs ersetzt
  * werden, ohne die aufrufenden Stellen zu aendern.

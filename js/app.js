@@ -94,16 +94,17 @@ function rerender() {
     ? el("div", { class: "readonly-banner", text: "🔒 Nur-Lesen aktiv – keine Änderungen am Server" })
     : null;
 
-  // Navigationsleiste je nach Einstellung oben oder unten platzieren.
+  // Die obere Leiste (Zahnrad/Titel/Suche) ist immer oben.
+  // Die Navigationsleiste (Sprung + ‹•›) liegt je nach Einstellung unten oder
+  // direkt unter der oberen Leiste.
   const navAtBottom = settings.navPosition === "bottom";
   document.getElementById("app").setAttribute("data-nav", navAtBottom ? "bottom" : "top");
 
   if (navAtBottom) {
-    // Oben nur der Hinweisstreifen, die Bedienleiste wandert nach unten.
-    render(headerEl, [banner].filter(Boolean));
-    render(footerEl, [view.header]);
+    render(headerEl, [banner, view.topBar].filter(Boolean));
+    render(footerEl, [view.navBar]);
   } else {
-    render(headerEl, [banner, view.header].filter(Boolean));
+    render(headerEl, [banner, view.topBar, view.navBar].filter(Boolean));
     render(footerEl, []);
   }
 

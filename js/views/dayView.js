@@ -8,12 +8,13 @@
  * Tag angelegt. Tippen auf einen Termin oeffnet ihn zum Bearbeiten.
  */
 
-import { el } from "../utils/dom.js";
+import { el, bar3 } from "../utils/dom.js";
 import {
   formatLongDate, formatTime, dayKey, addDays, isToday,
   WEEKDAYS_LONG, mondayIndex,
 } from "../utils/dates.js";
 import { getEventsByDay, getCalendar } from "../store.js";
+import { openDatePicker } from "./datePicker.js";
 
 /**
  * Eine Termin-Karte fuer die Tagesansicht.
@@ -63,25 +64,32 @@ export function renderDayView(ctx) {
   const allDayEvents = events.filter((e) => e.allDay);
   const timedEvents = events.filter((e) => !e.allDay);
 
-  /* ----- Kopfzeile: Zurueck zum Monat + Tages-Navigation ----- */
-  const header = el("div", { class: "header-bar" }, [
-    el("button", { class: "icon-btn", title: "Zurück zum Monat", text: "‹",
+  /* ----- Obere Leiste: Zurueck zum Monat · Wochentag+Datum · Suche ----- */
+  const topBar = bar3(
+    el("button", { class: "icon-btn big-gear", title: "Zurück zum Monat", text: "‹",
       on: { click: () => ctx.goToMonth(date) } }),
-    el("div", { class: "header-title" }, [
+    el("div", { class: "bar-title" }, [
       WEEKDAYS_LONG[mondayIndex(date)],
-      el("span", { class: "subtitle", text: `${date.getDate()}.${date.getMonth() + 1}.` }),
+      el("span", { class: "subtitle", text: ` ${date.getDate()}.${date.getMonth() + 1}.` }),
     ]),
-    el("div", { class: "header-actions" }, [
+    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
+      on: { click: () => ctx.openSearch() } }),
+  );
+
+  /* ----- Untere Leiste: Datum-Sprung · ‹ • › (Tagesnavigation) ----- */
+  const navBar = bar3(
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "⏭",
+      on: { click: () => openDatePicker(date, (d) => ctx.goToDay(d)) } }),
+    el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Tag", text: "‹",
         on: { click: () => ctx.goToDay(addDays(date, -1)) } }),
       el("button", { class: "icon-btn nav-today", title: "Heute", text: "•",
         on: { click: () => ctx.goToDay(new Date()) } }),
       el("button", { class: "icon-btn nav-arrow", title: "Nächster Tag", text: "›",
         on: { click: () => ctx.goToDay(addDays(date, 1)) } }),
-      el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
-        on: { click: () => ctx.openSearch() } }),
     ]),
-  ]);
+    el("span", { class: "bar-spacer" }),
+  );
 
   /* ----- Inhalt ----- */
   const content = el("div", { class: "day-view" });
@@ -118,5 +126,5 @@ export function renderDayView(ctx) {
     style: { position: "relative", flex: "1 1 auto", display: "flex", "flex-direction": "column", "min-height": "0" },
   }, [content, fab]);
 
-  return { header, main };
+  return { topBar, navBar, main };
 }

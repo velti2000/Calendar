@@ -15,12 +15,13 @@
  * sie sich nicht ueberlappen, und per grid-column ueber mehrere Spalten gelegt.
  */
 
-import { el } from "../utils/dom.js";
+import { el, bar3 } from "../utils/dom.js";
 import {
   WEEKDAYS_SHORT, buildMonthGrid, isToday, isWeekend,
-  formatMonthTitle, formatTime, addMonths,
+  formatMonthTitle, formatTime, addMonths, isoWeekNumber,
 } from "../utils/dates.js";
 import { getVisibleEvents, getCalendar } from "../store.js";
+import { openDatePicker } from "./datePicker.js";
 
 // Wie viele Spuren (Zeilen) pro Tag maximal sichtbar sind. Darueber: "+N".
 const MAX_LANES = 4;
@@ -145,29 +146,37 @@ export function renderMonthView(ctx) {
   const refDate = ctx.refDate;
   const events = getVisibleEvents();
 
-  /* ----- Kopfzeile: Titel + Navigation ----- */
-  const header = el("div", { class: "header-bar" }, [
-    el("div", { class: "header-title" }, [formatMonthTitle(refDate)]),
-    el("div", { class: "header-actions" }, [
+  /* ----- Obere Leiste: Zahnrad (links) · Monat+Jahr (mittig) · Suche (rechts) ----- */
+  const topBar = bar3(
+    el("button", { class: "icon-btn big-gear", title: "Einstellungen", text: "⚙︎",
+      on: { click: () => ctx.openSettings() } }),
+    el("div", { class: "bar-title", text: formatMonthTitle(refDate) }),
+    el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
+      on: { click: () => ctx.openSearch() } }),
+  );
+
+  /* ----- Untere Leiste: Datum-Sprung (links) · ‹ • › (mittig) ----- */
+  const navBar = bar3(
+    el("button", { class: "icon-btn jump-btn", title: "Zu Datum springen", text: "⏭",
+      on: { click: () => openDatePicker(refDate, (d) => ctx.goToMonth(d)) } }),
+    el("div", { class: "nav-group" }, [
       el("button", { class: "icon-btn nav-arrow", title: "Voriger Monat", text: "‹",
         on: { click: () => ctx.goToMonth(addMonths(refDate, -1)) } }),
       el("button", { class: "icon-btn nav-today", title: "Heute", text: "•",
         on: { click: () => ctx.goToToday() } }),
       el("button", { class: "icon-btn nav-arrow", title: "Nächster Monat", text: "›",
         on: { click: () => ctx.goToMonth(addMonths(refDate, 1)) } }),
-      el("button", { class: "icon-btn", title: "Suchen", text: "🔍",
-        on: { click: () => ctx.openSearch() } }),
-      el("button", { class: "icon-btn", title: "Einstellungen", text: "⚙︎",
-        on: { click: () => ctx.openSettings() } }),
     ]),
-  ]);
-
-  /* ----- Wochentags-Zeile (Mo Di Mi ...) ----- */
-  const weekdayRow = el("div", { class: "weekday-row" },
-    WEEKDAYS_SHORT.map((wd, i) =>
-      el("div", { class: "weekday-cell" + (i >= 5 ? " is-weekend" : ""), text: wd })
-    )
+    el("span", { class: "bar-spacer" }), // haelt die Pfeile mittig
   );
+
+  /* ----- Wochentags-Zeile (Mo Di Mi ...) mit fuehrender KW-Spalte ----- */
+  const weekdayRow = el("div", { class: "weekday-row" }, [
+    el("div", { class: "weekday-cell kw-head", text: "KW" }),
+    ...WEEKDAYS_SHORT.map((wd, i) =>
+      el("div", { class: "weekday-cell" + (i >= 5 ? " is-weekend" : ""), text: wd })
+    ),
+  ]);
 
   /* ----- Das Wochenraster ----- */
   const { days } = buildMonthGrid(refDate);
@@ -226,7 +235,10 @@ export function renderMonthView(ctx) {
       }
     }
 
-    grid.appendChild(el("div", { class: "week-row" }, [...bgCells, layer]));
+    // Kalenderwoche (KW) ganz links, vertikal mittig, ueber die ganze Zeile.
+    const kwCell = el("div", { class: "kw-cell", text: String(isoWeekNumber(weekDays[0])) });
+
+    grid.appendChild(el("div", { class: "week-row" }, [kwCell, ...bgCells, layer]));
   }
 
   /* ----- Hauptbereich zusammensetzen ----- */
@@ -235,5 +247,34 @@ export function renderMonthView(ctx) {
     [weekdayRow, grid]
   );
 
-  return { header, main };
+  // Wischgesten links/rechts -> Monat wechseln.
+  attachSwipe(main, {
+    onLeft: () => ctx.goToMonth(addMonths(refDate, 1)),   // nach links wischen -> naechster Monat
+    onRight: () => ctx.goToMonth(addMonths(refDate, -1)), // nach rechts wischen -> voriger Monat
+  });
+
+  return { topBar, navBar, main };
+}
+
+/**
+ * Haengt einfache horizontale Wischgesten an ein Element.
+ * Loest nur aus, wenn die Bewegung ueberwiegend horizontal ist (damit das
+ * vertikale Scrollen nicht stoert).
+ */
+function attachSwipe(node, { onLeft, onRight }) {
+  let startX = 0, startY = 0, tracking = false;
+  node.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0];
+    startX = t.clientX; startY = t.clientY; tracking = true;
+  }, { passive: true });
+  node.addEventListener("touchend", (e) => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) onLeft(); else onRight();
+    }
+  }, { passive: true });
 }

@@ -14,10 +14,17 @@ Build-Schritt**, damit der Code gut lesbar und einfach zu veröffentlichen ist.
 
 - **Monatsansicht** (Standard) im CalenGoo-Look:
   - Ganztagestermine sind **farbig hinterlegt**.
+  - **Mehrtages-Termine** werden als **durchgehender, verbundener Balken**
+    über die betroffenen Tage gezeichnet.
   - Zeit-Termine haben **weißen Hintergrund**, nur der Text ist in der
     Kategoriefarbe (plus farbiger Punkt).
+  - **Kalenderwoche (KW)** in einer schmalen Spalte ganz links.
+  - **Wischen** nach links/rechts wechselt zum nächsten/vorigen Monat.
+- **Obere Leiste**: Einstellungen (⚙︎, links) · Monat/Jahr (mittig) · Suche (🔍, rechts).
+- **Untere Leiste**: „Zu Datum springen" (Auswahlräder Tag/Monat/Jahr) · ‹ Heute ›.
+  Position (unten/oben) in den Einstellungen wählbar.
 - **Tagesansicht**: öffnet sich durch Tippen auf einen Tag; dort Termine
-  ansehen, ändern oder über „+" neu anlegen.
+  ansehen, ändern oder über „+" neu anlegen. Neue Termine starten standardmäßig **8:00 Uhr**.
 - **Mehrere Kalender/Kategorien** eines Kontos (z. B. „Termine Thomas",
   „Kinder", „Geburtstage", „Arbeit") mit eigenen Farben, einzeln ein-/ausblendbar.
 - **Termin-Editor**: Titel, Kategorie, ganztägig, Beginn/Ende, Erinnerung, Ort, Notizen.
@@ -56,6 +63,7 @@ Calendar/
 │       ├── monthView.js    Monatsansicht
 │       ├── dayView.js      Tagesansicht
 │       ├── eventEditor.js  Termin anlegen/ändern/löschen
+│       ├── datePicker.js   „Zu Datum springen" (Auswahlräder)
 │       ├── searchView.js   Suche
 │       └── settingsView.js Einstellungen
 ├── icons/                  App-Icons (PNG)
@@ -98,9 +106,36 @@ Du solltest sofort die Monatsansicht mit Demo-Terminen sehen.
 
 > **Hinweis Benachrichtigungen:** Auf dem iPhone erscheinen lokale Erinnerungen
 > zuverlässig nur, solange die (vom Home-Bildschirm gestartete) App läuft. iOS
-> unterstützt keine geplanten Hintergrund-Benachrichtigungen für Web-Apps.
-> Für Erinnerungen bei geschlossener App wäre **echtes Web-Push über einen
-> Server** nötig (möglicher späterer Ausbau).
+> stoppt im Hintergrund alle Timer und unterstützt **keine** geplanten
+> Hintergrund-Benachrichtigungen für Web-Apps. Deshalb kommen bei geschlossener
+> App keine Erinnerungen an – auch wenn du sie in iOS erlaubt hast.
+> Die Lösung ist **echtes Web-Push** (iOS ab 16.4 für Home-Bildschirm-PWAs),
+> bei dem dein **PHP-Server** die Nachrichten verschickt. Das ist der nächste
+> geplante Ausbauschritt.
+
+---
+
+## 🔄 App auf dem Home-Bildschirm aktualisieren
+
+Der Service Worker arbeitet nach dem Prinzip **„Netzwerk zuerst"**: Sobald online,
+lädt die App beim Start automatisch die neuesten Dateien.
+
+**Ablauf nach einer Änderung:**
+
+1. Neuen Stand zu GitHub hochladen (Abschnitt „Auf GitHub speichern").
+2. Auf deinen Webserver / GitHub Pages bringen; bei GitHub Pages ca. 1 Minute
+   bis zur Veröffentlichung warten.
+3. App auf dem iPhone öffnen (mit Internet) → sie holt die neuen Dateien.
+
+**Falls noch die alte Version erscheint:**
+
+- App **komplett schließen** (in der App-Übersicht nach oben wischen) und neu
+  öffnen. Updates greifen oft erst beim **zweiten** Start.
+- Hilft das nicht: App vom Home-Bildschirm **löschen** und erneut „Zum
+  Home-Bildschirm" hinzufügen. Deine Termine bleiben erhalten (separater Speicher).
+
+> Für Entwickler: Bei größeren Änderungen die Zahl in `sw.js`
+> (`CACHE_VERSION = "calendar-v3"`) erhöhen – das erzwingt sauberes Neuladen.
 
 ---
 

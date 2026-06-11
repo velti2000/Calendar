@@ -117,6 +117,26 @@ export function buildMonthGrid(monthDate) {
 }
 
 /**
+ * Berechnet die ISO-8601-Kalenderwoche (KW) eines Datums.
+ * In Deutschland ueblich: Woche beginnt Montag, KW 1 ist die Woche mit dem
+ * ersten Donnerstag des Jahres.
+ * @param {Date} date
+ * @returns {number} 1..53
+ */
+export function isoWeekNumber(date) {
+  // Auf UTC normalisieren, um Sommerzeit-Effekte zu vermeiden.
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Auf den Donnerstag dieser Woche springen (Mo=0 ... So=6).
+  const dayNum = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - dayNum + 3);
+  // Erster Donnerstag des Jahres.
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+  return 1 + Math.round((d - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+}
+
+/**
  * Formatiert die Uhrzeit als "HH:MM" (24-Stunden, deutsch).
  * @param {Date} date
  */
