@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <!--
+    viewport-fit=cover sorgt dafuer, dass die App auf dem iPhone auch hinter
+    der Notch / Home-Indicator-Leiste gezeichnet werden darf. Wir fangen das
+    in styles.css mit "safe-area-inset" wieder ab.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2b6cb0" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a202c" media="(prefers-color-scheme: dark)" />
+
+  <!-- iOS: erlaubt das Hinzufuegen zum Homescreen als "echte" App -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Calendar" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <title>Calendar</title>
+
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!--
+    Das gesamte UI wird von JavaScript in diesen Container gerendert.
+    Aufbau: Kopfzeile (Titel + Navigation) / Hauptbereich (Ansicht) / evtl. Dialoge.
+  -->
+  <div id="app" class="app">
+    <!-- Kopfzeile der App -->
+    <header id="app-header" class="app-header"></header>
+
+    <!-- Hauptbereich: hier wird die jeweils aktive Ansicht eingehaengt -->
+    <main id="app-main" class="app-main"></main>
+
+    <!--
+      Untere Navigationsleiste. Wird nur genutzt, wenn in den Einstellungen
+      "Navigation unten" gewaehlt ist (Standard) – fuer einhaendige Bedienung.
+    -->
+    <footer id="app-footer" class="app-footer"></footer>
+
+    <!-- Container fuer Dialoge/Popups (Bestaetigung, Editor, Suche ...) -->
+    <div id="modal-root" class="modal-root" aria-live="polite"></div>
+
+    <!-- Kleiner Hinweis-Balken (z.B. "Nur-Lesen aktiv", Sync-Status) -->
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  </div>
+
+  <!--
+    Einstiegspunkt der Anwendung. type="module" erlaubt uns saubere
+    import/export-Anweisungen zwischen den einzelnen .js-Dateien.
+    WICHTIG: ES-Module funktionieren nur ueber http(s), nicht per
+    Doppelklick (file://). Siehe README.md -> "Lokal starten".
+  -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

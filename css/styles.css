@@ -1,0 +1,807 @@
+/*
+ * styles.css  –  zentrales Stylesheet der Calendar-App
+ * ==========================================================================
+ * Aufbau dieser Datei:
+ *   1. Design-Variablen (Farben, Abstaende) – inkl. Dark Mode
+ *   2. Grundlegendes / Reset
+ *   3. Kopfzeile (Header) + Navigation
+ *   4. Monatsansicht (CalenGoo-Stil)
+ *   5. Tagesansicht
+ *   6. Termin-Eintraege (Farblogik: Ganztag vs. Zeit-Termin)
+ *   7. Dialoge / Popups (Modal)
+ *   8. Formulare (Termin-Editor, Einstellungen)
+ *   9. Toast-Hinweise
+ *  10. Hilfsklassen
+ *
+ * Farb-Logik wie in CalenGoo gewuenscht:
+ *   - GANZTAGES-Termine: Hintergrund in Kategoriefarbe, Text hell/weiss.
+ *   - ZEITLICH begrenzte Termine: weisser/heller Hintergrund, nur der TEXT
+ *     in der Kategoriefarbe (plus farbiger Punkt).
+ */
+
+/* 1. ----------------------------------------------------------------- DESIGN-VARIABLEN */
+:root {
+  /* Markenfarbe */
+  --color-accent: #2b6cb0;
+  --color-accent-contrast: #ffffff;
+
+  /* Flaechen */
+  --bg-app: #f2f3f5;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f7f8fa;
+  --bg-header: #ffffff;
+
+  /* Text */
+  --text-primary: #1a202c;
+  --text-secondary: #5a6573;
+  --text-muted: #9aa4b1;
+
+  /* Linien / Raster */
+  --border-color: #e2e6ea;
+  --grid-line: #e8eaed;
+
+  /* Zustaende */
+  --today-bg: #eaf2fb;
+  --today-ring: var(--color-accent);
+  --weekend-text: #c05656;
+  --othermonth-text: #b8c0c9;
+
+  /* Abstaende & Radien */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+
+  /* Sichere Bereiche (iPhone Notch / Home-Indikator) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --shadow-modal: 0 10px 40px rgba(0, 0, 0, 0.25);
+  --header-height: 52px;
+}
+
+/* Dark Mode: greift automatisch nach Systemeinstellung ... */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-app: #0f1419;
+    --bg-surface: #1a202c;
+    --bg-surface-2: #232b38;
+    --bg-header: #1a202c;
+    --text-primary: #e7ebf0;
+    --text-secondary: #a8b3c1;
+    --text-muted: #6b7686;
+    --border-color: #2c3645;
+    --grid-line: #283041;
+    --today-bg: #1c2c44;
+    --weekend-text: #e08a8a;
+    --othermonth-text: #4a5566;
+    --color-accent-contrast: #ffffff;
+  }
+}
+
+/* ... und laesst sich in den Einstellungen fest erzwingen. */
+:root[data-theme="dark"] {
+  --bg-app: #0f1419;
+  --bg-surface: #1a202c;
+  --bg-surface-2: #232b38;
+  --bg-header: #1a202c;
+  --text-primary: #e7ebf0;
+  --text-secondary: #a8b3c1;
+  --text-muted: #6b7686;
+  --border-color: #2c3645;
+  --grid-line: #283041;
+  --today-bg: #1c2c44;
+  --weekend-text: #e08a8a;
+  --othermonth-text: #4a5566;
+}
+
+/* 2. ------------------------------------------------------------------------- RESET */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent; /* kein graues Aufblitzen beim Tippen (iOS) */
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.4;
+  overscroll-behavior: none; /* verhindert "Gummiband"-Scrollen ueber die App hinaus */
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* dynamische Hoehe – beruecksichtigt Browserleisten auf iOS */
+}
+
+/* 3. ----------------------------------------------------------------------- HEADER */
+.app-header {
+  flex: 0 0 auto;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  padding-top: var(--safe-top);
+  display: flex;
+  flex-direction: column;
+}
+
+.header-bar {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-2);
+  gap: var(--space-1);
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.header-title .subtitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Runde Icon-Knoepfe in der Kopfzeile */
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+  transition: background 0.15s;
+}
+.icon-btn:hover { background: var(--bg-surface-2); }
+.icon-btn:active { background: var(--border-color); }
+.icon-btn.is-active { color: var(--color-accent); }
+
+/* Groessere Buttons fuer "zurueck / heute / vor" (einhaendige Bedienung) */
+.icon-btn.nav-arrow {
+  width: 50px;
+  height: 46px;
+  font-size: 32px;
+  color: var(--color-accent);
+}
+.icon-btn.nav-today {
+  width: 50px;
+  height: 46px;
+  font-size: 34px;
+  color: var(--color-accent);
+}
+
+/* Untere Navigationsleiste (optional, per Einstellung) */
+.app-footer {
+  flex: 0 0 auto;
+  background: var(--bg-header);
+  border-top: 1px solid var(--border-color);
+  padding-bottom: var(--safe-bottom);
+}
+.app-footer:empty { display: none; } /* bei "Navigation oben" ausblenden */
+.app-footer .header-bar { height: 58px; }
+
+/* Schwebenden "+"-Knopf anheben, wenn die Navigation unten liegt */
+.app[data-nav="bottom"] .fab {
+  bottom: calc(58px + var(--space-3) + var(--safe-bottom));
+}
+
+/* Wochentags-Kopf (Mo Di Mi ...) der Monatsansicht */
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid var(--border-color);
+}
+.weekday-cell {
+  text-align: center;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.weekday-cell.is-weekend { color: var(--weekend-text); }
+
+/* 4. -------------------------------------------------------------- MONATSANSICHT */
+.app-main {
+  flex: 1 1 auto;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Das Monatsraster ist in WOCHENZEILEN aufgebaut. Jede Wochenzeile hat:
+ *   - einen Hintergrund aus 7 Tageszellen (.day-bg) mit der Tageszahl
+ *   - eine darueberliegende Termin-Ebene (.events-layer), in der Termine als
+ *     Balken ueber eine oder mehrere Spalten gelegt werden. So entstehen
+ *     verbundene Mehrtages-Balken (CalenGoo-Stil).
+ */
+.month-grid {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--grid-line);
+  overflow-y: auto;
+}
+
+/* Eine Wochenzeile */
+.week-row {
+  position: relative;
+  flex: 1 0 auto;
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--grid-line);
+}
+
+/* Hintergrund-Tageszelle (haelt Tageszahl + Tipp-Flaeche) */
+.day-bg {
+  position: relative;
+  border-right: 1px solid var(--grid-line);
+  padding: 2px 3px;
+  overflow: hidden;
+}
+.day-bg:last-child { border-right: none; }
+.day-bg.is-othermonth { background: var(--bg-surface-2); }
+.day-bg.is-othermonth .day-number { color: var(--othermonth-text); }
+.day-bg.is-today { background: var(--today-bg); }
+
+/* Tageszahl oben rechts in der Zelle */
+.day-number {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  width: 22px;
+  height: 22px;
+  margin-left: auto;       /* nach rechts schieben */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.day-bg.is-weekend .day-number { color: var(--weekend-text); }
+/* Heute: Tageszahl als gefuellter Kreis in Markenfarbe */
+.day-bg.is-today .day-number {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-radius: 50%;
+  font-weight: 600;
+}
+
+/* Termin-Ebene: liegt ueber den Tageszellen, beginnt unter der Tageszahl */
+.events-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  bottom: 1px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 17px;
+  column-gap: 0;       /* keine Luecke -> Balken laufen nahtlos durch */
+  row-gap: 1px;
+  pointer-events: none; /* leere Bereiche durchklickbar (zum Tag) */
+  overflow: hidden;
+}
+
+/* Ein Termin-Segment (1 Tag oder ueber mehrere Spalten) */
+.seg {
+  pointer-events: auto;
+  min-width: 0;
+  height: 16px;
+  line-height: 15px;
+  font-size: 11px;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* Ganztags-/Mehrtages-Balken: voll gefuellt in Kategoriefarbe */
+.seg.bar,
+.seg.allday {
+  background: var(--cat-color, var(--color-accent));
+  color: #fff;
+  font-weight: 500;
+}
+/* Laeuft der Balken in die Nachbarwoche weiter, Kante gerade + bis zum Rand */
+.seg.no-left  { border-top-left-radius: 0;  border-bottom-left-radius: 0;  margin-left: 0; }
+.seg.no-right { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+
+/* Zeit-Termin (Einzeltag): weisser Hintergrund, farbiger Text + Punkt */
+.seg.timed {
+  background: transparent;
+  color: var(--cat-color, var(--color-accent));
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.seg.timed::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cat-color, var(--color-accent));
+}
+.seg.timed .seg-time { color: var(--text-secondary); font-weight: 400; }
+
+/* "+N"-Hinweis fuer ausgeblendete Termine eines Tages */
+.seg.more {
+  pointer-events: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-left: 3px;
+}
+
+/* 6. ----------------------------------------------------- TERMIN-EINTRAEGE (Chips) */
+/*
+ * Die Kategoriefarbe wird per CSS-Variable --cat-color am Element gesetzt.
+ * Zwei Varianten:
+ *   .event-chip.allday  -> voll gefuellt (Ganztag)
+ *   .event-chip.timed    -> weiss/hell, farbiger Text + Punkt
+ */
+.event-chip {
+  font-size: 11px;
+  line-height: 1.25;
+  border-radius: 3px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+/* Ganztagestermin: farbig hinterlegt */
+.event-chip.allday {
+  background: var(--cat-color, var(--color-accent));
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Zeitlich begrenzter Termin: heller Hintergrund, farbiger Text + Punkt */
+.event-chip.timed {
+  background: transparent;
+  color: var(--cat-color, var(--color-accent));
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.event-chip.timed::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cat-color, var(--color-accent));
+}
+.event-chip.timed .chip-time {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* 5. ---------------------------------------------------------------- TAGESANSICHT */
+.day-view {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: var(--bg-app);
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(80px + var(--safe-bottom));
+}
+
+/* Kopf der Tagesansicht: grosser Wochentag + Datum */
+.day-view-header {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+.day-view-header .weekday {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.day-view-header .bigdate {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+/* Abschnitt "Ganztags" oben in der Tagesansicht */
+.allday-section {
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Ein Termin als grosse Karte in der Tagesansicht */
+.event-card {
+  display: flex;
+  gap: var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  align-items: stretch;
+}
+.event-card .color-bar {
+  flex: 0 0 auto;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--cat-color, var(--color-accent));
+}
+.event-card .event-body { flex: 1 1 auto; min-width: 0; }
+.event-card .event-title {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.event-card .event-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.event-card .event-time {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-4);
+  font-size: 14px;
+}
+
+/* Schwebender "+"-Knopf zum Termin-Hinzufuegen (unten rechts) */
+.fab {
+  position: absolute;
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + var(--safe-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 30px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+}
+.fab:active { transform: scale(0.94); }
+
+/* 7. --------------------------------------------------------------------- MODAL */
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none; /* per .is-open eingeblendet */
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-root.is-open { display: flex; }
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.modal-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-modal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: var(--safe-bottom);
+  animation: sheet-up 0.22s ease;
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Kleiner, zentrierter Dialog (z.B. Loesch-Bestaetigung) */
+.modal-root.center { align-items: center; }
+.modal-root.center .modal-sheet {
+  max-width: 360px;
+  margin: var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+.modal-header .modal-title { font-weight: 600; font-size: 16px; }
+.modal-header .modal-link { color: var(--color-accent); font-weight: 600; }
+.modal-header .modal-link.danger { color: #d64545; }
+
+.modal-body {
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.confirm-text {
+  padding: var(--space-4);
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.confirm-actions {
+  display: flex;
+  border-top: 1px solid var(--border-color);
+}
+.confirm-actions button {
+  flex: 1 1 0;
+  padding: var(--space-3);
+  font-size: 16px;
+  font-weight: 600;
+}
+.confirm-actions button + button { border-left: 1px solid var(--border-color); }
+.confirm-actions .btn-cancel { color: var(--text-secondary); }
+.confirm-actions .btn-danger { color: #d64545; }
+
+/* 8. ------------------------------------------------------------------ FORMULARE */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.form-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.form-row input[type="text"],
+.form-row input[type="password"],
+.form-row input[type="date"],
+.form-row input[type="time"],
+.form-row input[type="url"],
+.form-row select,
+.form-row textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-size: 15px;
+}
+.form-row textarea { resize: vertical; min-height: 70px; }
+
+.form-inline { display: flex; gap: var(--space-2); }
+.form-inline > * { flex: 1 1 0; }
+
+/* Umschalter (Schalter / Toggle) */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.switch-row .switch-label { font-size: 15px; }
+.switch-row .switch-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.switch {
+  position: relative;
+  width: 50px;
+  height: 30px;
+  flex: 0 0 auto;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-color);
+  border-radius: 30px;
+  transition: background 0.2s;
+}
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  left: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.switch input:checked + .slider { background: var(--color-accent); }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+
+/* Voll-Breite-Knopf (Speichern etc.) */
+.btn-primary {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+.btn-primary:active { opacity: 0.85; }
+.btn-secondary {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: var(--space-2);
+}
+
+/* Farb-/Kalenderauswahl als Liste */
+.cal-list { list-style: none; margin: 0; padding: 0; }
+.cal-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.cal-item .cal-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.cal-item .cal-name { flex: 1 1 auto; }
+
+/* Auswahl-Chips fuer Kategorie im Editor */
+.category-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background: var(--bg-surface-2);
+  font-size: 14px;
+}
+.category-chip .dot { width: 12px; height: 12px; border-radius: 50%; }
+.category-chip.is-selected { border-color: var(--text-primary); font-weight: 600; }
+
+/* Suche */
+.search-input-row {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+}
+.search-input-row input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+.search-results { list-style: none; margin: 0; padding: 0; }
+.search-result {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+.search-result .res-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.search-result .res-date { font-size: 12px; color: var(--text-secondary); }
+
+/* 9. --------------------------------------------------------------------- TOAST */
+.toast-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--space-4) + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+  z-index: 200;
+}
+.toast {
+  background: rgba(26, 32, 44, 0.95);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 22px;
+  font-size: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  animation: toast-in 0.2s ease;
+  max-width: 90%;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+/* Kleiner Status-Streifen ganz oben (z.B. "Nur-Lesen aktiv") */
+.readonly-banner {
+  background: #b7791f;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  padding: 3px;
+  font-weight: 600;
+}
+
+/* 10. ------------------------------------------------------------- HILFSKLASSEN */
+.hidden { display: none !important; }
+.text-muted { color: var(--text-muted); }
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: 700;
+}

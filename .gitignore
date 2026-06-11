@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Lokale Notizen / Geheimnisse (niemals committen!)
+secrets.txt
+*.local
