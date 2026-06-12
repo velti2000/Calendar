@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Kalender",
+    "slug": "kalender",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "net.gmx.velti2000.kalender",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "de",
+        "CFBundleAllowMixedLocalizations": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-localization",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
+      ]
+    ]
+  }
+}
