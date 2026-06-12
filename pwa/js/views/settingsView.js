@@ -202,10 +202,15 @@ export function openSettings(ctx) {
     } } }));
 
   /* ---------------- Dialog zusammenbauen ---------------- */
+  // Schliesst die Einstellungen und kehrt zur App zurueck.
+  const back = () => { closeModal(); ctx.rerender(); };
+
   const content = el("div", {}, [
     el("div", { class: "modal-header" }, [
+      // Zwei gut sichtbare Wege zurueck: Pfeil links + "Fertig" rechts.
+      el("button", { class: "modal-link", text: "‹ Zurück", on: { click: back } }),
       el("div", { class: "modal-title", text: "Einstellungen" }),
-      el("button", { class: "modal-link", text: "Fertig", on: { click: () => { closeModal(); ctx.rerender(); } } }),
+      el("button", { class: "modal-link", text: "Fertig", on: { click: back } }),
     ]),
     body,
   ]);

@@ -93,8 +93,24 @@ const ctx = {
 
 /* ----------------------------- Rendern ------------------------------------ */
 
-/** Zeichnet die aktuelle Ansicht (Header + Hauptbereich) neu. */
+/**
+ * Zeichnet die aktuelle Ansicht neu. Der gesamte Aufbau ist in einen
+ * Schutzblock (try/catch) gehuellt: Sollte beim Rendern jemals ein Fehler
+ * auftreten (z.B. unerwartete Daten aus dem Sync), bleibt die App bedienbar –
+ * statt eines leeren, eingefrorenen Bildschirms erscheint ein kurzer Hinweis
+ * mit einem Knopf zur Monatsansicht.
+ */
 function rerender() {
+  try {
+    renderInner();
+  } catch (err) {
+    console.error("Fehler beim Rendern:", err);
+    showRecovery(err);
+  }
+}
+
+/** Eigentlicher Aufbau der Ansicht (wird von rerender abgesichert). */
+function renderInner() {
   const headerEl = document.getElementById("app-header");
   const footerEl = document.getElementById("app-footer");
   const mainEl = document.getElementById("app-main");
@@ -132,6 +148,29 @@ function rerender() {
   scheduleReminders(settings.notificationsEnabled);
 }
 
+/**
+ * Notfall-Anzeige, falls das Rendern fehlschlaegt. Haelt die App bedienbar und
+ * bietet einen Weg zurueck zur (heutigen) Monatsansicht.
+ */
+function showRecovery(err) {
+  const headerEl = document.getElementById("app-header");
+  const footerEl = document.getElementById("app-footer");
+  const mainEl = document.getElementById("app-main");
+  try {
+    render(footerEl, []);
+    render(headerEl, [el("div", { class: "app-bar" }, [
+      el("div", { class: "bar-title", text: "Calendar" }),
+    ])]);
+    render(mainEl, [el("div", { class: "empty-hint", style: { padding: "32px 16px" } }, [
+      el("div", { text: "Beim Anzeigen ist ein Fehler aufgetreten." }),
+      el("div", { class: "text-muted", style: { "font-size": "12px", margin: "8px 0 16px" },
+        text: String(err && err.message || err) }),
+      el("button", { class: "btn-primary", text: "Zur Monatsansicht (heute)",
+        on: { click: () => { uiState.view = "month"; uiState.refDate = new Date(); rerender(); } } }),
+    ])]);
+  } catch (_) { /* Wenn selbst das scheitert: nichts weiter tun. */ }
+}
+
 /** Wendet das gewaehlte Farbschema auf das <html>-Element an. */
 function applyTheme() {
   const theme = getSettings().theme;
@@ -154,10 +193,27 @@ function start() {
 
   // Service Worker registrieren (nur wenn vom Browser unterstuetzt).
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch((err) =>
-        console.warn("Service Worker Registrierung fehlgeschlagen:", err)
-      );
+    window.addEventListener("load", async () => {
+      try {
+        // Unsere aktuelle Service-Worker-Adresse (relativ zu dieser Seite).
+        const ourSwUrl = new URL("./sw.js", location.href).href;
+
+        // Selbstheilung: Nach einem Ordner-Umzug (z.B. nach /pwa/) koennen noch
+        // ALTE Service Worker von einem frueheren Pfad aktiv sein und veraltete,
+        // nicht zusammenpassende Dateien ausliefern. Solche entfernen wir.
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const reg of regs) {
+          const sw = reg.active || reg.installing || reg.waiting;
+          if (sw && sw.scriptURL !== ourSwUrl) {
+            await reg.unregister();
+            console.warn("Veralteten Service Worker entfernt:", sw.scriptURL);
+          }
+        }
+
+        await navigator.serviceWorker.register("./sw.js");
+      } catch (err) {
+        console.warn("Service Worker Registrierung fehlgeschlagen:", err);
+      }
     });
   }
 }
