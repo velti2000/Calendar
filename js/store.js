@@ -22,6 +22,7 @@
  */
 
 import { getDemoCalendars, getDemoEvents } from "./data/demoData.js";
+import { expandRecurring } from "./data/ical.js";
 import { dayKey } from "./utils/dates.js";
 
 const STORAGE_KEY = "calendar.state.v1";
@@ -74,6 +75,7 @@ export function loadState() {
       // Einstellungen mit Standardwerten zusammenfuehren (falls neue dazukamen).
       state.settings = { ...defaultSettings(), ...(parsed.settings || {}) };
       state.settings.account = { ...defaultSettings().account, ...(parsed.settings?.account || {}) };
+      recomputeExpanded();
       return;
     }
   } catch (err) {
@@ -83,7 +85,20 @@ export function loadState() {
   state.calendars = getDemoCalendars();
   state.events = getDemoEvents();
   state.settings = defaultSettings();
+  recomputeExpanded();
   persist();
+}
+
+/**
+ * Loest Serientermine (RRULE) fuer die Anzeige in Einzelvorkommen auf und legt
+ * das Ergebnis in `state._expanded` ab. Wird nach jeder Datenaenderung neu
+ * berechnet. So erscheinen auch lokal angelegte Serientermine sofort.
+ */
+function recomputeExpanded() {
+  const now = new Date();
+  const windowStart = new Date(now.getFullYear() - 1, 0, 1);
+  const windowEnd = new Date(now.getFullYear() + 2, 11, 31);
+  state._expanded = expandRecurring(state.events, windowStart, windowEnd);
 }
 
 /** Schreibt den aktuellen Zustand in den localStorage. */
@@ -115,6 +130,7 @@ export function subscribe(fn) {
 
 /** Benachrichtigt alle Abonnenten (und speichert vorher). */
 function emit() {
+  recomputeExpanded(); // Serientermine fuer die Anzeige neu aufloesen
   persist();
   subscribers.forEach((fn) => fn(state));
 }
@@ -137,14 +153,22 @@ export function getCalendar(id) {
   return state.calendars.find((c) => c.id === id) || null;
 }
 
+/** Findet einen (Original-)Termin per uid (ohne aufgeloeste Serienvorkommen). */
+export function getEvent(uid) {
+  return state.events.find((e) => e.uid === uid) || null;
+}
+
 export function getSettings() {
   return state.settings;
 }
 
-/** Nur die Termine sichtbarer Kalender. */
+/**
+ * Nur die Termine sichtbarer Kalender – inkl. aufgeloester Serienvorkommen
+ * (state._expanded), damit z.B. Geburtstage an jedem Jahrestag erscheinen.
+ */
 export function getVisibleEvents() {
   const visibleIds = new Set(state.calendars.filter((c) => c.visible).map((c) => c.id));
-  return state.events.filter((e) => visibleIds.has(e.calendarId));
+  return (state._expanded || state.events).filter((e) => visibleIds.has(e.calendarId));
 }
 
 /**
@@ -193,7 +217,7 @@ export function searchEvents(query) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const visibleIds = new Set(state.calendars.filter((c) => c.visible).map((c) => c.id));
-  return state.events
+  return (state._expanded || state.events)
     .filter((e) => visibleIds.has(e.calendarId))
     .filter((e) => {
       const haystack = `${e.title} ${e.location || ""} ${e.notes || ""}`.toLowerCase();
@@ -227,6 +251,7 @@ export function addEvent(data) {
     location: data.location || "",
     notes: data.notes || "",
     reminders: data.reminders || [],
+    rrule: data.rrule || null, // Wiederholungsregel (Serientermin)
   };
   state.events.push(event);
   emit();

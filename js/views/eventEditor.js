@@ -11,7 +11,7 @@
 import { el } from "../utils/dom.js";
 import { openModal, closeModal, confirmDialog, toast } from "../ui.js";
 import {
-  getCalendars, getSettings, addEvent, updateEvent, deleteEvent,
+  getCalendars, getSettings, addEvent, updateEvent, deleteEvent, getEvent,
 } from "../store.js";
 import {
   toDateInputValue, toTimeInputValue, dateFromInputs, addDays,
@@ -27,12 +27,25 @@ import { pushChange } from "../data/dataSource.js";
 export function openEventEditor(event, defaultDate, onSaved) {
   const calendars = getCalendars();
   const settings = getSettings();
+
+  // Tippt man ein einzelnes Vorkommen einer Serie an, bearbeiten wir den
+  // Original-Termin (Aenderungen gelten dann fuer die ganze Reihe).
+  let isSeries = false;
+  if (event && event.recurringMaster) {
+    const master = getEvent(event.recurringMaster);
+    if (master) { event = master; isSeries = true; }
+  } else if (event && event.rrule) {
+    isSeries = true;
+  }
   const isNew = !event;
 
   // Startwerte bestimmen (entweder aus dem Termin oder sinnvolle Vorgaben).
-  // Standard-Startzeit fuer NEUE Termine: 8:00 Uhr, Ende 9:00 Uhr.
+  // Hat defaultDate eine Uhrzeit (z.B. Tippen ins Stundenraster), wird sie
+  // uebernommen – sonst Standard-Startzeit 8:00 Uhr, Ende 9:00 Uhr.
   const baseDate = defaultDate || (event ? new Date(event.start) : new Date());
-  const startDate = event ? new Date(event.start) : defaultStartTime(baseDate);
+  const hasTime = defaultDate && (defaultDate.getHours() || defaultDate.getMinutes());
+  const startDate = event ? new Date(event.start)
+    : (hasTime ? new Date(defaultDate) : defaultStartTime(baseDate));
   const endDate = event ? new Date(event.end) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
   // Lokaler Formularzustand.
@@ -45,6 +58,7 @@ export function openEventEditor(event, defaultDate, onSaved) {
     notes: event ? event.notes || "" : "",
     reminder: event ? (event.reminders && event.reminders[0] != null ? event.reminders[0] : settings.defaultReminder)
                     : settings.defaultReminder,
+    rrule: event ? (event.rrule || "") : "",
   };
 
   /* --------- Eingabefelder ---------- */
@@ -96,6 +110,13 @@ export function openEventEditor(event, defaultDate, onSaved) {
     )
   );
 
+  // Wiederholung (Serientermin)
+  const recurrenceSelect = el("select", {},
+    RECURRENCE_OPTIONS.map((opt) =>
+      el("option", { value: opt.value, selected: opt.value === formState.rrule ? "selected" : null }, [opt.label])
+    )
+  );
+
   /* --------- Speichern ---------- */
   const handleSave = async () => {
     const title = titleInput.value.trim() || "(ohne Titel)";
@@ -128,6 +149,7 @@ export function openEventEditor(event, defaultDate, onSaved) {
       location: locationInput.value.trim(),
       notes: notesInput.value.trim(),
       reminders,
+      rrule: recurrenceSelect.value || null, // Serientermin-Regel oder keine
     };
 
     // 1) Lokal speichern (immer), damit die Anzeige sofort stimmt.
@@ -197,6 +219,14 @@ export function openEventEditor(event, defaultDate, onSaved) {
     field("Ende", el("div", { class: "form-inline" }, [endDateInput])),
 
     field("Erinnerung", reminderSelect),
+    field("Wiederholung", recurrenceSelect),
+
+    // Hinweis, wenn ein Serientermin bearbeitet wird.
+    isSeries
+      ? el("div", { class: "switch-desc", style: { "margin": "-6px 0 12px" },
+          text: "Dies ist ein Serientermin – Änderungen gelten für die ganze Reihe." })
+      : null,
+
     field("Ort", locationInput),
     field("Notizen", notesInput),
 
@@ -240,4 +270,13 @@ const REMINDER_OPTIONS = [
   { value: 60, label: "1 Stunde vorher" },
   { value: 120, label: "2 Stunden vorher" },
   { value: 1440, label: "1 Tag vorher" },
+];
+
+/** Auswahlmoeglichkeiten fuer die Wiederholung (Serientermine). */
+const RECURRENCE_OPTIONS = [
+  { value: "", label: "Keine Wiederholung" },
+  { value: "FREQ=DAILY", label: "Täglich" },
+  { value: "FREQ=WEEKLY", label: "Wöchentlich" },
+  { value: "FREQ=MONTHLY", label: "Monatlich" },
+  { value: "FREQ=YEARLY", label: "Jährlich" },
 ];

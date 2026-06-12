@@ -15,7 +15,7 @@
  * sie sich nicht ueberlappen, und per grid-column ueber mehrere Spalten gelegt.
  */
 
-import { el, bar3 } from "../utils/dom.js";
+import { el, bar3, clear } from "../utils/dom.js";
 import {
   WEEKDAYS_SHORT, buildMonthGrid, isToday, isWeekend,
   formatMonthTitle, formatTime, addMonths, isoWeekNumber,
@@ -23,8 +23,12 @@ import {
 import { getVisibleEvents, getCalendar } from "../store.js";
 import { openDatePicker } from "./datePicker.js";
 
-// Wie viele Spuren (Zeilen) pro Tag maximal sichtbar sind. Darueber: "+N".
-const MAX_LANES = 4;
+// Hoehe einer Termin-Zeile (muss zu .events-layer grid-auto-rows + row-gap in
+// styles.css passen: 17px Zeile + 1px Abstand).
+const LANE_HEIGHT = 18;
+const LANE_GAP = 1;
+// Vorlaeufige Zeilenzahl fuer den ersten Aufbau (wird per Messung korrigiert).
+const DEFAULT_LANES = 5;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -107,7 +111,7 @@ function buildWeekSegments(weekDays, events) {
 }
 
 /** Baut ein einzelnes Termin-Segment als DOM-Element. */
-function renderSegment(seg, ctx) {
+function renderSegment(seg, ctx, day) {
   const ev = seg.event;
   const cal = getCalendar(ev.calendarId);
   const color = cal ? cal.color : "var(--color-accent)";
@@ -117,7 +121,8 @@ function renderSegment(seg, ctx) {
     "grid-column": `${seg.startCol + 1} / ${seg.endCol + 2}`,
     "grid-row": `${seg.lane + 1}`,
   };
-  const onClick = (e) => { e.stopPropagation(); ctx.openEditor(ev); };
+  // Tippen auf einen Termin oeffnet zuerst die Tagesansicht (nicht direkt den Editor).
+  const onClick = (e) => { e.stopPropagation(); ctx.goToDay(new Date(day)); };
 
   // Balken fuer Ganztags-/Mehrtages-Termine
   if (seg.multiDay || seg.allDay) {
@@ -135,6 +140,47 @@ function renderSegment(seg, ctx) {
     el("span", { class: "seg-time", text: time }),
     el("span", { text: ev.title }),
   ]);
+}
+
+/**
+ * Fuellt eine Termin-Ebene mit Segmenten – bis zu `fitLanes` Zeilen sichtbar.
+ * Passt nicht alles hinein, wird die letzte sichtbare Zeile fuer "+N" reserviert.
+ * @param {HTMLElement} layer
+ * @param {Array} segs   Segmente aus buildWeekSegments
+ * @param {Date[]} weekDays
+ * @param {number} fitLanes  wie viele Zeilen passen
+ * @param {object} ctx
+ */
+function placeSegments(layer, segs, weekDays, fitLanes, ctx) {
+  clear(layer);
+  const cap = Math.max(1, fitLanes);
+  const maxLane = segs.reduce((m, s) => Math.max(m, s.lane), -1);
+  const overflow = maxLane + 1 > cap;
+  // Bei Ueberlauf eine Zeile fuer "+N" frei halten.
+  const laneCap = overflow ? cap - 1 : cap;
+
+  const hiddenByCol = new Array(7).fill(0);
+  for (const seg of segs) {
+    if (seg.lane >= laneCap) {
+      for (let c = seg.startCol; c <= seg.endCol; c++) hiddenByCol[c]++;
+      continue;
+    }
+    layer.appendChild(renderSegment(seg, ctx, weekDays[seg.startCol]));
+  }
+
+  if (overflow) {
+    for (let c = 0; c < 7; c++) {
+      if (hiddenByCol[c] > 0) {
+        const day = weekDays[c];
+        layer.appendChild(el("div", {
+          class: "seg more",
+          style: { "grid-column": `${c + 1} / ${c + 2}`, "grid-row": `${laneCap + 1}` },
+          text: `+${hiddenByCol[c]}`,
+          on: { click: (e) => { e.stopPropagation(); ctx.goToDay(new Date(day)); } },
+        }));
+      }
+    }
+  }
 }
 
 /**
@@ -185,14 +231,14 @@ export function renderMonthView(ctx) {
 
   const grid = el("div", { class: "month-grid" });
 
+  // Wir merken uns je Woche die Termin-Ebene + Segmente, um die sichtbare
+  // Zeilenzahl NACH dem Rendern an die tatsaechliche Zellenhoehe anzupassen.
+  const weeksData = [];
+
   // Tage in Wochen (je 7) aufteilen.
   for (let w = 0; w < days.length; w += 7) {
     const weekDays = days.slice(w, w + 7);
     const segs = buildWeekSegments(weekDays, events);
-
-    const maxLane = segs.reduce((m, s) => Math.max(m, s.lane), -1);
-    const overflow = maxLane + 1 > MAX_LANES;
-    const laneCap = overflow ? MAX_LANES - 1 : MAX_LANES;
 
     // Hintergrund-Tageszellen
     const bgCells = weekDays.map((day) => {
@@ -208,38 +254,16 @@ export function renderMonthView(ctx) {
       ]);
     });
 
-    // Termin-Ebene
+    // Leere Termin-Ebene; gefuellt wird gleich (erst mit Standardwert, dann
+    // nach Messung der echten Hoehe).
     const layer = el("div", { class: "events-layer" });
-    const hiddenByCol = new Array(7).fill(0);
-
-    for (const seg of segs) {
-      if (seg.lane >= laneCap) {
-        // Ausgeblendet -> spaeter als "+N" zaehlen.
-        for (let c = seg.startCol; c <= seg.endCol; c++) hiddenByCol[c]++;
-        continue;
-      }
-      layer.appendChild(renderSegment(seg, ctx));
-    }
-
-    // "+N"-Hinweise fuer Tage mit ausgeblendeten Terminen.
-    if (overflow) {
-      for (let c = 0; c < 7; c++) {
-        if (hiddenByCol[c] > 0) {
-          const day = weekDays[c];
-          layer.appendChild(el("div", {
-            class: "seg more",
-            style: { "grid-column": `${c + 1} / ${c + 2}`, "grid-row": `${laneCap + 1}` },
-            text: `+${hiddenByCol[c]}`,
-            on: { click: (e) => { e.stopPropagation(); ctx.goToDay(new Date(day)); } },
-          }));
-        }
-      }
-    }
+    placeSegments(layer, segs, weekDays, DEFAULT_LANES, ctx);
 
     // Kalenderwoche (KW) ganz links, vertikal mittig, ueber die ganze Zeile.
     const kwCell = el("div", { class: "kw-cell", text: String(isoWeekNumber(weekDays[0])) });
 
     grid.appendChild(el("div", { class: "week-row" }, [kwCell, ...bgCells, layer]));
+    weeksData.push({ layer, segs, weekDays });
   }
 
   /* ----- Hauptbereich zusammensetzen ----- */
@@ -247,6 +271,17 @@ export function renderMonthView(ctx) {
     style: { display: "flex", "flex-direction": "column", flex: "1 1 auto", "min-height": "0" } },
     [weekdayRow, grid]
   );
+
+  // Nach dem Einfuegen ins DOM: echte Hoehe messen und so viele Zeilen zeigen,
+  // wie tatsaechlich passen (verhindert ein "+N", obwohl noch Platz waere).
+  requestAnimationFrame(() => {
+    if (!weeksData.length || !weeksData[0].layer.isConnected) return;
+    const avail = weeksData[0].layer.clientHeight;
+    const fitLanes = Math.max(1, Math.floor((avail + LANE_GAP) / LANE_HEIGHT));
+    for (const wk of weeksData) {
+      placeSegments(wk.layer, wk.segs, wk.weekDays, fitLanes, ctx);
+    }
+  });
 
   // Wischgesten links/rechts -> Monat wechseln.
   attachSwipe(main, {

@@ -173,6 +173,9 @@ export function buildICalendar(event) {
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeText(event.notes)}`);
 
+  // Wiederholungsregel (Serientermin) – z.B. "FREQ=WEEKLY".
+  if (event.rrule) lines.push(`RRULE:${event.rrule}`);
+
   // Erinnerung als VALARM (Anzeige) hinzufuegen.
   for (const minutes of event.reminders || []) {
     lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(event.title)}`,

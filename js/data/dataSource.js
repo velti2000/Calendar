@@ -11,7 +11,6 @@
 
 import { getSettings, replaceData, getCalendars, getState } from "../store.js";
 import * as caldav from "./caldav.js";
-import { expandRecurring } from "./ical.js";
 
 /**
  * Prueft die Verbindung zum Server (bzw. meldet im Demo-Modus Erfolg).
@@ -56,19 +55,14 @@ export async function syncFromServer() {
       if (prev) cal.visible = prev.visible;
     }
 
-    // 3) Termine aller Kalender laden.
+    // 3) Termine aller Kalender laden. Serientermine bleiben als EIN Eintrag
+    //    (mit RRULE) erhalten – das Aufloesen in Einzelvorkommen erledigt der
+    //    Store zentral fuer die Anzeige (so bleiben Serien bearbeitbar).
     let allEvents = [];
     for (const cal of calendars) {
       const events = await caldav.fetchEvents(cal.url, cal.id);
       allEvents = allEvents.concat(events);
     }
-
-    // 3b) Serientermine (RRULE), z.B. Geburtstage, in Einzelvorkommen aufloesen
-    //     – Fenster: 1 Jahr zurueck bis 2 Jahre voraus.
-    const now = new Date();
-    const windowStart = new Date(now.getFullYear() - 1, 0, 1);
-    const windowEnd = new Date(now.getFullYear() + 2, 11, 31);
-    allEvents = expandRecurring(allEvents, windowStart, windowEnd);
 
     // 4) Lokalen Stand komplett ersetzen.
     replaceData(calendars, allEvents);
