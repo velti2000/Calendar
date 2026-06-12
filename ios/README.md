@@ -125,8 +125,11 @@ CalDAV-/mailbox.org-kompatibel (auch andere Apps zeigen die Serie korrekt).
 - [x] Automatischer Sync beim App-Start (still; Fehler werden nicht gemeldet,
       manueller Sync weiter in den Einstellungen)
 - [x] Schriftgröße der Termine in den Einstellungen einstellbar
+- [x] Tagesansicht als Stundenraster (0–24 Uhr) mit Termin-Blöcken nach Dauer,
+      parallele Termine nebeneinander, Ganztages-Reihe oben, „Jetzt"-Linie;
+      Tippen auf eine Stunde legt dort einen Termin an
+- [x] App-Icon (Kalendermotiv im App-Blau, erzeugt mit `tools/make_icon.py`)
 - [ ] Hintergrund-Sync (Background Fetch), damit Erinnerungen auch für neue
       Server-Termine geplant werden, ohne die App zu öffnen
 - [ ] Einzelne Vorkommen einer Serie ÄNDERN (abweichende Uhrzeit/Titel nur an
       einem Tag – „RECURRENCE-ID") – löschen geht bereits
-- [ ] App-Icon und Startbildschirm gestalten

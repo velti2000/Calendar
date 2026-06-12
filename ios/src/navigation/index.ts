@@ -11,6 +11,7 @@ export type RootStackParamList = {
   EventEditor: {
     uid?: string;               // uid = bestehenden Termin bearbeiten
     dateKey?: string;           // dateKey = neuen Termin an diesem Tag anlegen
+    startHour?: number;         // Anfangsstunde fuer den neuen Termin (sonst 8:00)
     occurrenceDateKey?: string; // bei Serien: welches Vorkommen wurde angetippt
   };
   Search: undefined;

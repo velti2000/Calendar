@@ -43,10 +43,12 @@ export default function EventEditorScreen({ route, navigation }: Props) {
     ? events.find((e) => e.uid === route.params.uid) || null
     : null;
 
-  // Anfangswerte: bestehender Termin ODER neuer Termin 8:00–9:00 Uhr.
+  // Anfangswerte: bestehender Termin ODER neuer Termin. Standard-Beginn 8:00,
+  // oder die in der Tagesansicht angetippte Stunde (startHour).
   const baseDay = route.params.dateKey ? dateFromKey(route.params.dateKey) : new Date();
-  const defaultStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 8, 0);
-  const defaultEnd = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), 9, 0);
+  const startHour = route.params.startHour ?? 8;
+  const defaultStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour, 0);
+  const defaultEnd = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour + 1, 0);
 
   const [title, setTitle] = useState(existing?.title ?? "");
   const [calendarId, setCalendarId] = useState(existing?.calendarId ?? calendars[0]?.id ?? "");
