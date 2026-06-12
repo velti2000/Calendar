@@ -8,7 +8,11 @@
 export type RootStackParamList = {
   Month: undefined;
   Day: { dateKey: string };                       // "YYYY-MM-DD"
-  EventEditor: { uid?: string; dateKey?: string }; // uid = bearbeiten, dateKey = neu
+  EventEditor: {
+    uid?: string;               // uid = bestehenden Termin bearbeiten
+    dateKey?: string;           // dateKey = neuen Termin an diesem Tag anlegen
+    occurrenceDateKey?: string; // bei Serien: welches Vorkommen wurde angetippt
+  };
   Search: undefined;
   Settings: undefined;
 };

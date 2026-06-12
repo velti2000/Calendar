@@ -32,7 +32,7 @@ function defaultSettings(): Settings {
   return {
     theme: "auto",
     navPosition: "bottom",
-    eventFontSize: 10,
+    eventFontSize: 9,
     readOnly: true,        // Sicherheit: zunaechst keine Server-Schreibzugriffe
     defaultReminder: 30,
     notificationsEnabled: false,

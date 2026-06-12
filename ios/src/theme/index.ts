@@ -14,7 +14,8 @@ export interface Theme {
   border: string;
   accent: string;         // Hervorhebung (heute, Buttons)
   weekend: string;        // Hintergrund Wochenend-Spalten
-  todayRing: string;      // Markierung des heutigen Tags
+  todayCell: string;      // Hintergrund des heutigen Tags (etwas dunkler als Wochenende)
+  todayRing: string;      // Markierung der heutigen Tageszahl
   danger: string;         // Loeschen
 }
 
@@ -27,6 +28,7 @@ export const lightTheme: Theme = {
   border: "#e7e5e4",
   accent: "#2b6cb0",
   weekend: "#fafaf9",
+  todayCell: "#ebebe8",
   todayRing: "#2b6cb0",
   danger: "#b91c1c",
 };
@@ -40,6 +42,7 @@ export const darkTheme: Theme = {
   border: "#2e2e33",
   accent: "#60a5fa",
   weekend: "#19191c",
+  todayCell: "#2b2b31",
   todayRing: "#60a5fa",
   danger: "#f87171",
 };

@@ -34,7 +34,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Month">;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BAR_H = 15;       // Hoehe eines Mehrtages-Balkens
 const BAR_GAP = 2;      // Abstand zwischen Balken-Ebenen
-const DAYNUM_H = 22;    // Hoehe der Tagesnummern-Zeile
+const DAYNUM_H = 18;    // Hoehe der Tagesnummern-Zeile (flach)
 
 /** Tag als fortlaufende Nummer (UTC-basiert, unempfindlich gegen Sommerzeit). */
 function dayNumber(d: Date): number {
@@ -157,7 +157,7 @@ export default function MonthScreen({ navigation }: Props) {
       {/* Obere Leiste */}
       <View style={[styles.topBar, { borderColor: theme.border }]}>
         <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Settings")}>
-          <Text style={[styles.icon, { color: theme.textMuted }]}>⚙︎</Text>
+          <Text style={[styles.gearIcon, { color: theme.textMuted }]}>⚙︎</Text>
         </Pressable>
         <Text style={[styles.title, { color: theme.text }]}>{formatMonthTitle(monthDate)}</Text>
         <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Search")}>
@@ -303,6 +303,8 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
         styles.dayCell,
         { borderColor: theme.border },
         isWeekend(day) && { backgroundColor: theme.weekend },
+        // Heutiger Tag: leicht grau hinterlegt, etwas dunkler als Wochenende.
+        today && { backgroundColor: theme.todayCell },
         !inMonth && { backgroundColor: theme.surfaceMuted, opacity: 0.55 },
       ]}
       onPress={onPress}
@@ -329,13 +331,14 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
             </Text>
           </View>
         ) : (
-          // Zeit-Termin: Punkt + Text in Kategoriefarbe.
-          <View key={ev.uid} style={styles.timedRow}>
-            <View style={[styles.dot, { backgroundColor: color }]} />
-            <Text numberOfLines={1} style={[styles.chipText, { fontSize, color }]}>
-              {formatTime(new Date(ev.start))} {ev.title}
-            </Text>
-          </View>
+          // Zeit-Termin: Text in Kategoriefarbe, buendig links.
+          <Text
+            key={ev.uid}
+            numberOfLines={1}
+            style={[styles.chipText, styles.timedText, { fontSize, color }]}
+          >
+            {formatTime(new Date(ev.start))} {ev.title}
+          </Text>
         );
       })}
       {more > 0 && (
@@ -355,6 +358,7 @@ const styles = StyleSheet.create({
   },
   iconBtn: { padding: 8, minWidth: 44, alignItems: "center" },
   icon: { fontSize: 20 },
+  gearIcon: { fontSize: 34, lineHeight: 36 }, // Textglyph ⚙︎ wirkt sonst winzig neben dem Emoji
   title: { fontSize: 18, fontWeight: "600" },
   weekdayRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   weekdayCell: { flex: 1, alignItems: "center", paddingVertical: 4 },
@@ -363,20 +367,21 @@ const styles = StyleSheet.create({
   weekRow: { flex: 1, flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   daysArea: { flex: 1 },
   daysRow: { flex: 1, flexDirection: "row" },
-  kwCell: { width: 22, alignItems: "center", justifyContent: "flex-start", paddingTop: 4 },
-  kwText: { fontSize: 10 },
+  // KW vertikal mittig, Zahlen gleich gross wie die Tageszahlen.
+  kwCell: { width: 22, alignItems: "center", justifyContent: "center" },
+  kwText: { fontSize: 12, fontWeight: "600" },
   dayCell: {
     flex: 1, borderLeftWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 1, paddingTop: 2, overflow: "hidden",
+    paddingTop: 1, overflow: "hidden", // kein seitliches Padding -> Eintraege buendig links
   },
   dayNumWrap: {
-    alignSelf: "flex-start", minWidth: 20, height: 20, borderRadius: 10,
-    alignItems: "center", justifyContent: "center", paddingHorizontal: 3, marginBottom: 1,
+    alignSelf: "flex-start", minWidth: 17, height: 16, borderRadius: 8,
+    alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+    marginBottom: 1, marginLeft: 1,
   },
   dayNum: { fontSize: 12, fontWeight: "600" },
   allDayChip: { borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, marginBottom: 1 },
-  timedRow: { flexDirection: "row", alignItems: "center", marginBottom: 1 },
-  dot: { width: 5, height: 5, borderRadius: 3, marginRight: 2 },
+  timedText: { marginBottom: 1 },
   chipText: { flexShrink: 1 },
   moreText: { marginTop: 1 },
   navBar: {

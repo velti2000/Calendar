@@ -132,6 +132,31 @@ export default function SettingsScreen() {
           value={settings.navPosition}
           onChange={(v) => updateSettings({ navPosition: v as Settings["navPosition"] })}
         />
+
+        {/* Schriftgroesse der Termine in der Monatsansicht */}
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Schriftgröße Termine</Text>
+          <View style={styles.fontStepper}>
+            <Pressable
+              style={[styles.stepBtn, { borderColor: theme.accent, opacity: settings.eventFontSize <= 6 ? 0.35 : 1 }]}
+              disabled={settings.eventFontSize <= 6}
+              onPress={() => updateSettings({ eventFontSize: settings.eventFontSize - 1 })}
+            >
+              <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>−</Text>
+            </Pressable>
+            <Text style={[styles.stepValue, { color: theme.text }]}>{settings.eventFontSize}</Text>
+            <Pressable
+              style={[styles.stepBtn, { borderColor: theme.accent, opacity: settings.eventFontSize >= 14 ? 0.35 : 1 }]}
+              disabled={settings.eventFontSize >= 14}
+              onPress={() => updateSettings({ eventFontSize: settings.eventFontSize + 1 })}
+            >
+              <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Beispiel: <Text style={{ fontSize: settings.eventFontSize, color: theme.accent }}>09:00 Zahnarzt</Text>
+        </Text>
       </View>
 
       {/* ---------- Kalender ---------- */}
@@ -271,6 +296,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, marginTop: 6,
   },
   hint: { fontSize: 12, marginTop: 8, lineHeight: 17 },
+  fontStepper: { flexDirection: "row", alignItems: "center", gap: 4 },
+  stepBtn: {
+    borderWidth: 1.5, borderRadius: 8, width: 32, height: 32,
+    alignItems: "center", justifyContent: "center",
+  },
+  stepValue: { fontSize: 16, fontWeight: "600", minWidth: 28, textAlign: "center" },
   actionBtn: {
     borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10,
   },

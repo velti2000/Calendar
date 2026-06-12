@@ -184,6 +184,20 @@ export function buildICalendar(event: CalEvent): string {
   if (event.notes) lines.push(`DESCRIPTION:${escapeText(event.notes)}`);
   if (event.rrule) lines.push(`RRULE:${event.rrule}`);
 
+  // Ausgenommene Vorkommen einer Serie (EXDATE) mitschreiben, damit der
+  // Server (und andere Apps) sie ebenfalls auslassen.
+  for (const key of event.exdates || []) {
+    const [y, m, d] = key.split("-").map(Number);
+    if (!y || !m || !d) continue;
+    if (event.allDay) {
+      lines.push(`EXDATE;VALUE=DATE:${String(y)}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`);
+    } else {
+      // Uhrzeit des Serienbeginns verwenden (gleicher Typ wie DTSTART = UTC).
+      const base = new Date(event.start);
+      lines.push(`EXDATE:${formatUtc(new Date(y, m - 1, d, base.getHours(), base.getMinutes(), 0))}`);
+    }
+  }
+
   for (const minutes of event.reminders || []) {
     lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${escapeText(event.title)}`,
       `TRIGGER:-PT${minutes}M`, "END:VALARM");

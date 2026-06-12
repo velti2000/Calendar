@@ -119,8 +119,80 @@ export default function EventEditorScreen({ route, navigation }: Props) {
     }
   };
 
+  /** Erinnerungen nach einer Aenderung neu planen. */
+  const refreshReminders = () => {
+    if (settings.notificationsEnabled) {
+      const s = useStore.getState();
+      rescheduleAll(s.events, s.calendars).catch(() => {});
+    }
+  };
+
+  /** Ganze Serie bzw. Einzeltermin endgueltig loeschen (lokal + Server). */
+  const deleteWhole = async () => {
+    if (!existing) return;
+    navigation.goBack();
+    try {
+      const result = await deleteEventEverywhere(existing.uid);
+      if (result === "readonly") {
+        Alert.alert(
+          "Nur lokal gelöscht",
+          "Nur-Lesen ist aktiv – auf dem Server bleibt der Termin bestehen und kommt beim nächsten Sync zurück."
+        );
+      }
+    } catch (err: any) {
+      Alert.alert(
+        "Server-Löschen fehlgeschlagen",
+        `${err?.message ?? err}\n\nLokal wurde der Termin entfernt.`
+      );
+    }
+    refreshReminders();
+  };
+
+  /**
+   * Nur EIN Vorkommen einer Serie loeschen: der Tag wird als Ausnahme
+   * (EXDATE) am Serientermin vermerkt und die Serie neu zum Server geschrieben.
+   */
+  const deleteSingleOccurrence = async () => {
+    if (!existing) return;
+    const key = route.params.occurrenceDateKey!;
+    updateEvent(existing.uid, {
+      exdates: [...(existing.exdates || []), key],
+    });
+    navigation.goBack();
+    try {
+      const result = await pushEventToServer(existing.uid);
+      if (result === "readonly") {
+        Alert.alert(
+          "Nur lokal gelöscht",
+          "Nur-Lesen ist aktiv – die Ausnahme wurde NICHT auf den Server geschrieben und geht beim nächsten Sync verloren."
+        );
+      }
+    } catch (err: any) {
+      Alert.alert(
+        "Server-Speichern fehlgeschlagen",
+        `${err?.message ?? err}\n\nDie Ausnahme ist nur lokal gespeichert.`
+      );
+    }
+    refreshReminders();
+  };
+
   const confirmDelete = () => {
     if (!existing) return;
+
+    // Serie + angetipptes Vorkommen bekannt -> Auswahl anbieten.
+    if (existing.rrule && route.params.occurrenceDateKey) {
+      Alert.alert(
+        "Serientermin löschen",
+        `„${existing.title}" ist ein Serientermin.`,
+        [
+          { text: "Abbrechen", style: "cancel" },
+          { text: "Nur diesen Termin", style: "destructive", onPress: deleteSingleOccurrence },
+          { text: "Ganze Serie", style: "destructive", onPress: deleteWhole },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       "Termin löschen?",
       existing.rrule
@@ -128,31 +200,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
         : `„${existing.title}" wird gelöscht.`,
       [
         { text: "Abbrechen", style: "cancel" },
-        {
-          text: "Löschen", style: "destructive",
-          onPress: async () => {
-            navigation.goBack();
-            try {
-              const result = await deleteEventEverywhere(existing.uid);
-              if (result === "readonly") {
-                Alert.alert(
-                  "Nur lokal gelöscht",
-                  "Nur-Lesen ist aktiv – auf dem Server bleibt der Termin bestehen und kommt beim nächsten Sync zurück."
-                );
-              }
-            } catch (err: any) {
-              Alert.alert(
-                "Server-Löschen fehlgeschlagen",
-                `${err?.message ?? err}\n\nLokal wurde der Termin entfernt.`
-              );
-            }
-            // Erinnerungen aufraeumen.
-            if (settings.notificationsEnabled) {
-              const s = useStore.getState();
-              rescheduleAll(s.events, s.calendars).catch(() => {});
-            }
-          },
-        },
+        { text: "Löschen", style: "destructive", onPress: deleteWhole },
       ]
     );
   };

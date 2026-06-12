@@ -120,8 +120,13 @@ CalDAV-/mailbox.org-kompatibel (auch andere Apps zeigen die Serie korrekt).
 - [x] „Zu Datum springen“ (Auswahlräder, 📅 in der Navigationsleiste)
 - [x] Mehrtages-Termine als durchgehender Balken in der Monatsansicht
 - [x] Erweiterte Serientermine (Intervall, Wochentage, Ende, N-ter Wochentag)
+- [x] Einzelne Vorkommen einer Serie löschen („Nur diesen Termin" → EXDATE,
+      wird auch zum Server geschrieben)
+- [x] Automatischer Sync beim App-Start (still; Fehler werden nicht gemeldet,
+      manueller Sync weiter in den Einstellungen)
+- [x] Schriftgröße der Termine in den Einstellungen einstellbar
 - [ ] Hintergrund-Sync (Background Fetch), damit Erinnerungen auch für neue
-      Server-Termine geplant werden
-- [ ] Einzelne Vorkommen einer Serie löschen/ändern (EXDATE) – aktuell wird
-      immer die ganze Serie bearbeitet
+      Server-Termine geplant werden, ohne die App zu öffnen
+- [ ] Einzelne Vorkommen einer Serie ÄNDERN (abweichende Uhrzeit/Titel nur an
+      einem Tag – „RECURRENCE-ID") – löschen geht bereits
 - [ ] App-Icon und Startbildschirm gestalten

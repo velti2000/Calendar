@@ -30,12 +30,21 @@ export default function App() {
   const themeSetting = useStore((s) => s.settings.theme);
   const dark = themeSetting === "dark" || (themeSetting === "auto" && systemScheme === "dark");
 
-  // Beim App-Start: Erinnerungen neu planen (falls aktiviert).
+  // Beim App-Start: erst still vom Server synchronisieren (falls CalDAV aktiv),
+  // danach die Erinnerungen neu planen (falls aktiviert).
   useEffect(() => {
-    const { settings, events, calendars } = useStore.getState();
-    if (settings.notificationsEnabled) {
-      rescheduleAll(events, calendars).catch(() => {});
-    }
+    (async () => {
+      const { settings, syncFromServer } = useStore.getState();
+      if (settings.dataSource === "caldav") {
+        // Fehler hier nicht stoerend melden – die App zeigt einfach den
+        // letzten lokalen Stand; manueller Sync geht in den Einstellungen.
+        await syncFromServer().catch(() => {});
+      }
+      const s = useStore.getState();
+      if (s.settings.notificationsEnabled) {
+        rescheduleAll(s.events, s.calendars).catch(() => {});
+      }
+    })();
   }, []);
 
   return (

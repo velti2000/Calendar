@@ -13,7 +13,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation";
 import { useStore, getEventsByDay } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
-import { dateFromKey, formatLongDate, formatTime } from "../utils/dates";
+import { dateFromKey, dayKey, formatLongDate, formatTime } from "../utils/dates";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
@@ -41,8 +41,12 @@ export default function DayScreen({ route, navigation }: Props) {
       <Pressable
         style={[styles.eventRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
         onPress={() => navigation.navigate("EventEditor", {
-          // Bei Serien-Vorkommen den Originaltermin bearbeiten.
+          // Bei Serien-Vorkommen den Originaltermin bearbeiten – aber merken,
+          // WELCHES Vorkommen angetippt wurde (fuer "nur diesen Termin löschen").
           uid: item.recurringMaster || item.uid,
+          occurrenceDateKey: item.recurringMaster
+            ? dayKey(new Date(item.start))
+            : undefined,
         })}
       >
         <View style={[styles.colorBar, { backgroundColor: color }]} />
