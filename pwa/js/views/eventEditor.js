@@ -9,7 +9,7 @@
  */
 
 import { el } from "../utils/dom.js";
-import { openModal, closeModal, confirmDialog, toast } from "../ui.js";
+import { openModal, closeModal, confirmDialog, toast, errorToast } from "../ui.js";
 import {
   getCalendars, getSettings, addEvent, updateEvent, deleteEvent, getEvent,
 } from "../store.js";
@@ -167,7 +167,7 @@ export function openEventEditor(event, defaultDate, onSaved) {
       if (res.href || res.etag) updateEvent(saved.uid, { href: res.href, etag: res.etag });
       toast(isNew ? "Termin hinzugefügt" : "Termin gespeichert");
     } else {
-      toast("Lokal gespeichert – Server-Fehler: " + res.message);
+      errorToast("Lokal gespeichert – Server-Fehler: " + res.message);
     }
   };
 
@@ -185,7 +185,8 @@ export function openEventEditor(event, defaultDate, onSaved) {
         deleteEvent(event.uid);
         closeModal();
         if (onSaved) onSaved();
-        toast(res.ok ? "Termin gelöscht" : "Lokal gelöscht – Server-Fehler: " + res.message);
+        if (res.ok) toast("Termin gelöscht");
+        else errorToast("Lokal gelöscht – Server-Fehler: " + res.message);
       },
     });
   };

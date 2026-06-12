@@ -193,6 +193,14 @@ function parseCalendarList(xmlText, baseUrl) {
  * @returns {Promise<CalEvent[]>}
  */
 export async function fetchEvents(calendarUrl, calendarId) {
+  // WICHTIG: Wir grenzen die Abfrage auf einen Zeitbereich ein (1 Jahr zurueck
+  // bis 2 Jahre voraus). Ohne diese Grenze versucht der Server, die KOMPLETTE
+  // Kalenderhistorie zu liefern – das fuehrt bei grossen Kalendern zu Timeouts
+  // und damit zu HTTP 502. Der Bereich passt zum Anzeige-Fenster der App.
+  const now = new Date();
+  const rangeStart = icalUtc(new Date(now.getFullYear() - 1, 0, 1));
+  const rangeEnd = icalUtc(new Date(now.getFullYear() + 2, 11, 31, 23, 59, 59));
+
   const reportBody =
     `<?xml version="1.0" encoding="utf-8" ?>
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
@@ -202,7 +210,9 @@ export async function fetchEvents(calendarUrl, calendarId) {
   </d:prop>
   <c:filter>
     <c:comp-filter name="VCALENDAR">
-      <c:comp-filter name="VEVENT"/>
+      <c:comp-filter name="VEVENT">
+        <c:time-range start="${rangeStart}" end="${rangeEnd}"/>
+      </c:comp-filter>
     </c:comp-filter>
   </c:filter>
 </c:calendar-query>`;
@@ -212,7 +222,14 @@ export async function fetchEvents(calendarUrl, calendarId) {
     contentType: 'application/xml; charset="utf-8"',
     body: reportBody,
   });
-  if (res.status >= 400) throw new Error(`REPORT fehlgeschlagen (HTTP ${res.status}).`);
+  if (res.status >= 400) {
+    // Antworttext des Proxys/Servers mitgeben – hilft bei der Fehlersuche.
+    const detail = (res.text || "").trim().slice(0, 200);
+    const hint = res.status === 502
+      ? " (Zeitüberschreitung/Server-Gateway – evtl. zu großer Kalender)"
+      : "";
+    throw new Error(`REPORT fehlgeschlagen (HTTP ${res.status})${hint}${detail ? ": " + detail : ""}`);
+  }
 
   // Aus der Multistatus-Antwort die einzelnen calendar-data (ICS) herausziehen.
   const doc = new DOMParser().parseFromString(res.text, "application/xml");
@@ -273,6 +290,12 @@ export async function removeEvent(event) {
 /* -------------------------------------------------------------------------- */
 /*  Hilfen                                                                     */
 /* -------------------------------------------------------------------------- */
+
+/** Formatiert ein Date als CalDAV-/iCal-UTC-Zeitstempel "YYYYMMDDTHHMMSSZ". */
+function icalUtc(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+}
 
 /** Wirft einen Fehler, wenn Nur-Lesen aktiv ist (Schreibschutz). */
 function guardWritable() {

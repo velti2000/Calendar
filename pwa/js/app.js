@@ -20,7 +20,7 @@ import { openSearch as openSearchView } from "./views/searchView.js";
 import { openSettings as openSettingsView } from "./views/settingsView.js";
 import { scheduleReminders } from "./reminders.js";
 import { syncFromServer } from "./data/dataSource.js";
-import { toast } from "./ui.js";
+import { toast, errorToast } from "./ui.js";
 import { render, el } from "./utils/dom.js";
 
 /* ----------------------------- UI-Zustand --------------------------------- */
@@ -81,7 +81,7 @@ const ctx = {
     toast("Synchronisiere …");
     const res = await syncFromServer();
     if (res.ok) { rerender(); toast(`Synchronisiert: ${res.count} Termine`); }
-    else toast(`Sync-Fehler: ${res.message}`);
+    else errorToast(`Sync-Fehler: ${res.message}`);
   },
 
   /** Theme erneut anwenden (nach Einstellungsaenderung). */

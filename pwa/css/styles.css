@@ -990,8 +990,29 @@ button {
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   animation: toast-in 0.2s ease;
   max-width: 90%;
+  pointer-events: auto;   /* Toast ist antippbar (zum Schliessen) */
+  cursor: pointer;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+
+/* Fehler-Toast: bleibt stehen bis zum Antippen, rot, mit Schliess-Symbol */
+.toast.toast-error {
+  background: #c53030;
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  max-width: 94%;
+  line-height: 1.35;
+  text-align: left;
+}
+.toast.toast-error .toast-close {
+  flex: 0 0 auto;
+  font-size: 15px;
+  opacity: 0.85;
+  margin-top: 1px;
+}
 
 /* Kleiner Status-Streifen ganz oben (z.B. "Nur-Lesen aktiv") */
 .readonly-banner {

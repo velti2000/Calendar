@@ -92,7 +92,8 @@ curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HEADER         => true,           // Antwort-Header mit auslesen
     CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_TIMEOUT        => 30,
+    CURLOPT_CONNECTTIMEOUT => 15,             // max. Zeit fuer den Verbindungsaufbau
+    CURLOPT_TIMEOUT        => 90,             // max. Gesamtzeit (grosse Kalender)
     CURLOPT_SSL_VERIFYPEER => true,           // Zertifikat pruefen (Sicherheit)
 ]);
 

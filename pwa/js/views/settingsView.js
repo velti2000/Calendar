@@ -11,7 +11,7 @@
  */
 
 import { el } from "../utils/dom.js";
-import { openModal, closeModal, toast, confirmDialog } from "../ui.js";
+import { openModal, closeModal, toast, errorToast, confirmDialog } from "../ui.js";
 import {
   getSettings, updateSettings, getCalendars, toggleCalendarVisible,
 } from "../store.js";
@@ -157,7 +157,8 @@ export function openSettings(ctx) {
     on: { click: async () => {
       toast("Teste Verbindung …");
       const res = await testConnection();
-      toast(res.ok ? "Verbindung OK" : `Fehler: ${res.message}`);
+      if (res.ok) toast("Verbindung OK");
+      else errorToast(`Fehler: ${res.message}`);
     } } });
   body.appendChild(testBtn);
 
@@ -166,7 +167,7 @@ export function openSettings(ctx) {
       toast("Synchronisiere …");
       const res = await syncFromServer();
       if (res.ok) { ctx.rerender(); toast(`Synchronisiert: ${res.count} Termine`); }
-      else toast(`Sync-Fehler: ${res.message}`);
+      else errorToast(`Sync-Fehler: ${res.message}`);
     } } });
   body.appendChild(syncBtn);
 

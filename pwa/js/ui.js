@@ -98,16 +98,43 @@ export function confirmDialog(opts) {
 }
 
 /**
- * Zeigt einen kurzen Hinweis-"Toast" am unteren Rand.
+ * Zeigt einen Hinweis-"Toast" am unteren Rand.
  * @param {string} message
- * @param {number} [duration=2500]  Anzeigedauer in Millisekunden
+ * @param {number|object} [opts]
+ *   - Zahl: Anzeigedauer in Millisekunden (altes Verhalten).
+ *   - Objekt: { persist:boolean, duration:number }
+ *     persist=true -> bleibt stehen, bis man darauf tippt.
+ * @returns {Function} Funktion zum manuellen Schliessen.
  */
-export function toast(message, duration = 2500) {
-  const node = el("div", { class: "toast", text: message });
-  toastRoot().appendChild(node);
-  setTimeout(() => {
+export function toast(message, opts = {}) {
+  let duration = 2500;
+  let persist = false;
+  if (typeof opts === "number") duration = opts;
+  else { if (opts.duration) duration = opts.duration; if (opts.persist) persist = true; }
+
+  const node = el("div", { class: "toast" + (persist ? " toast-error" : "") });
+  node.appendChild(el("span", { text: message }));
+  if (persist) node.appendChild(el("span", { class: "toast-close", text: "✕" }));
+
+  const remove = () => {
     node.style.transition = "opacity 0.3s";
     node.style.opacity = "0";
     setTimeout(() => node.remove(), 300);
-  }, duration);
+  };
+
+  // Tippen schliesst den Hinweis immer.
+  node.addEventListener("click", remove);
+  toastRoot().appendChild(node);
+
+  // Nicht-dauerhafte Hinweise verschwinden nach Ablauf der Zeit von selbst.
+  if (!persist) setTimeout(remove, duration);
+  return remove;
+}
+
+/**
+ * Bequemer Helfer fuer FEHLER: bleibt stehen, bis der Nutzer darauf tippt.
+ * @param {string} message
+ */
+export function errorToast(message) {
+  return toast(message, { persist: true });
 }
