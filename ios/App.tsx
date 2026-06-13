@@ -18,6 +18,7 @@ import { useStore } from "./src/store/useStore";
 import { rescheduleAll } from "./src/notifications/reminders";
 
 import MonthScreen from "./src/screens/MonthScreen";
+import WeekScreen from "./src/screens/WeekScreen";
 import DayScreen from "./src/screens/DayScreen";
 import EventEditorScreen from "./src/screens/EventEditorScreen";
 import SearchScreen from "./src/screens/SearchScreen";
@@ -55,6 +56,7 @@ export default function App() {
           <Stack.Navigator initialRouteName="Month">
             {/* Die Monatsansicht hat eine eigene obere Leiste -> kein Header. */}
             <Stack.Screen name="Month" component={MonthScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Week" component={WeekScreen} options={{ title: "Woche" }} />
             <Stack.Screen name="Day" component={DayScreen} options={{ title: "" }} />
             <Stack.Screen name="EventEditor" component={EventEditorScreen} options={{ title: "Termin" }} />
             <Stack.Screen name="Search" component={SearchScreen} options={{ title: "Suche" }} />

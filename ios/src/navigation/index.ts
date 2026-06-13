@@ -7,6 +7,7 @@
 
 export type RootStackParamList = {
   Month: undefined;
+  Week: { dateKey: string };                       // ein Tag IN der Woche ("YYYY-MM-DD")
   Day: { dateKey: string };                       // "YYYY-MM-DD"
   EventEditor: {
     uid?: string;               // uid = bestehenden Termin bearbeiten

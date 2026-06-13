@@ -222,11 +222,15 @@ export default function MonthScreen({ navigation }: Props) {
             const barSpace = lanes * (BAR_H + BAR_GAP);
             return (
               <View key={dayKey(week[0])} style={[styles.weekRow, { borderColor: theme.border }]}>
-                <View style={[styles.kwCell, { borderColor: theme.border }]}>
-                  <Text style={[styles.kwText, { color: theme.textMuted }]}>
+                {/* KW-Zahl antippen -> Wochenansicht dieser Woche */}
+                <Pressable
+                  style={[styles.kwCell, { borderColor: theme.border }]}
+                  onPress={() => navigation.navigate("Week", { dateKey: dayKey(week[0]) })}
+                >
+                  <Text style={[styles.kwText, { color: theme.accent }]}>
                     {isoWeekNumber(week[0])}
                   </Text>
-                </View>
+                </Pressable>
 
                 {/* Tagesbereich: 7 Zellen + Balken-Overlay darueber */}
                 <View style={styles.daysArea}>

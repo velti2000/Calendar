@@ -21,6 +21,7 @@ import type { RootStackParamList } from "../navigation";
 import { useStore, getEventsByDay } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
 import { dateFromKey, dayKey, isToday, formatLongDate, formatTime } from "../utils/dates";
+import { positionTimedEvents } from "../utils/timeline";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
@@ -30,55 +31,6 @@ const DEFAULT_TOP_HOUR = 6; // beim Oeffnen sichtbare oberste Stunde
 const GUTTER = 48;          // Breite der Uhrzeit-Spalte links
 const MIN_BLOCK_H = 22;     // Mindesthoehe eines Termin-Blocks (Lesbarkeit)
 const GAP = 3;              // Abstand zwischen parallelen Spalten / Bloecken
-
-/** Termin mit Position auf der Zeitachse (in Minuten ab Mitternacht). */
-interface Positioned {
-  event: CalEvent;
-  startMin: number;
-  endMin: number;
-  col: number;   // Spalte innerhalb seines Ueberlappungs-Clusters
-  cols: number;  // Gesamtzahl Spalten im Cluster (bestimmt die Breite)
-}
-
-/**
- * Ordnet ueberlappende Termine in Spalten an.
- * Vorgehen: Termine werden zu "Clustern" zusammengefasst (alles, was sich
- * direkt oder ueber Nachbarn ueberlappt). Innerhalb eines Clusters bekommt
- * jeder Termin die erste freie Spalte; die Cluster-Breite ergibt sich aus der
- * maximalen Spaltenzahl. So ueberlappt nichts und die Breite ist gleichmaessig.
- */
-function layoutOverlapping(items: Positioned[]): Positioned[] {
-  const sorted = [...items].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-
-  let cluster: Positioned[] = [];
-  let columnsEnd: number[] = []; // letztes Ende je Spalte im aktuellen Cluster
-  let clusterMaxEnd = -1;
-
-  const finalize = (group: Positioned[]) => {
-    const cols = group.reduce((m, p) => Math.max(m, p.col + 1), 0);
-    for (const p of group) p.cols = cols;
-  };
-
-  for (const p of sorted) {
-    // Neuer Cluster, sobald der naechste Termin nach allen bisherigen beginnt.
-    if (cluster.length && p.startMin >= clusterMaxEnd) {
-      finalize(cluster);
-      cluster = [];
-      columnsEnd = [];
-      clusterMaxEnd = -1;
-    }
-    // Erste Spalte suchen, die schon frei ist (Termin beginnt nach ihrem Ende).
-    let placed = columnsEnd.findIndex((end) => end <= p.startMin);
-    if (placed === -1) { placed = columnsEnd.length; columnsEnd.push(p.endMin); }
-    else columnsEnd[placed] = p.endMin;
-
-    p.col = placed;
-    cluster.push(p);
-    clusterMaxEnd = Math.max(clusterMaxEnd, p.endMin);
-  }
-  finalize(cluster);
-  return sorted;
-}
 
 export default function DayScreen({ route, navigation }: Props) {
   const theme = useTheme();
@@ -98,18 +50,10 @@ export default function DayScreen({ route, navigation }: Props) {
   const calById = useMemo(() => new Map(calendars.map((c) => [c.id, c])), [calendars]);
 
   const allDay = dayEvents.filter((e) => e.allDay);
-  const timed = useMemo(() => {
-    const minutesFromDayStart = (t: number) => (t - dayStart) / 60000;
-    const positioned: Positioned[] = dayEvents
-      .filter((e) => !e.allDay)
-      .map((event) => {
-        // Auf den Tag begrenzen (Termine ueber Mitternacht werden gekappt).
-        const startMin = Math.max(0, Math.min(1440, minutesFromDayStart(new Date(event.start).getTime())));
-        const endMin = Math.max(startMin + 1, Math.min(1440, minutesFromDayStart(new Date(event.end).getTime())));
-        return { event, startMin, endMin, col: 0, cols: 1 };
-      });
-    return layoutOverlapping(positioned);
-  }, [dayEvents, dayStart]);
+  const timed = useMemo(
+    () => positionTimedEvents(dayEvents.filter((e) => !e.allDay), dayStart),
+    [dayEvents, dayStart]
+  );
 
   const [areaWidth, setAreaWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
