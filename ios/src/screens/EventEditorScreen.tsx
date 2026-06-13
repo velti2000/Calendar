@@ -25,15 +25,25 @@ import RecurrenceEditor from "../components/RecurrenceEditor";
 
 type Props = NativeStackScreenProps<RootStackParamList, "EventEditor">;
 
-/** Auswahlmoeglichkeiten fuer die Erinnerung. */
+/** Feste Auswahlmoeglichkeiten fuer die Erinnerung (Minuten vor Beginn). */
 const REMINDER_OPTIONS = [
   { label: "Keine", value: -1 },
   { label: "Zum Termin", value: 0 },
   { label: "10 Min", value: 10 },
   { label: "30 Min", value: 30 },
   { label: "1 Std", value: 60 },
+  { label: "6 Std", value: 360 },
+  { label: "12 Std", value: 720 },
   { label: "1 Tag", value: 1440 },
 ];
+
+const REMINDER_PRESET_VALUES = REMINDER_OPTIONS.map((o) => o.value);
+
+/** Minuten -> Datum mit passender Stunde/Minute (fuer das Zeit-Wählrad). */
+function minutesToWheelDate(total: number): Date {
+  const d = new Date(2000, 0, 1, Math.floor(total / 60) % 24, total % 60, 0);
+  return d;
+}
 
 export default function EventEditorScreen({ route, navigation }: Props) {
   const theme = useTheme();
@@ -68,8 +78,11 @@ export default function EventEditorScreen({ route, navigation }: Props) {
   const [start, setStart] = useState(existing ? new Date(existing.start) : defaultStart);
   const [end, setEnd] = useState(existing ? new Date(existing.end) : defaultEnd);
   const [rrule, setRrule] = useState(existing?.rrule ?? "");
-  const [reminder, setReminder] = useState<number>(
-    existing?.reminders?.length ? existing.reminders[0] : settings.defaultReminder
+  const initialReminder = existing?.reminders?.length ? existing.reminders[0] : settings.defaultReminder;
+  const [reminder, setReminder] = useState<number>(initialReminder);
+  // "Frei einstellbar": aktiv, wenn der Wert nicht zu den festen Optionen passt.
+  const [customReminder, setCustomReminder] = useState<boolean>(
+    initialReminder >= 0 && !REMINDER_PRESET_VALUES.includes(initialReminder)
   );
   const [location, setLocation] = useState(existing?.location ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
@@ -289,22 +302,46 @@ export default function EventEditorScreen({ route, navigation }: Props) {
 
       <Text style={[styles.label, { color: theme.textMuted }]}>Erinnerung</Text>
       <View style={styles.chipRow}>
-        {REMINDER_OPTIONS.map((opt) => (
-          <Pressable
-            key={opt.value}
-            style={[
-              styles.chip,
-              { borderColor: theme.accent },
-              reminder === opt.value && { backgroundColor: theme.accent },
-            ]}
-            onPress={() => setReminder(opt.value)}
-          >
-            <Text style={{ color: reminder === opt.value ? "#fff" : theme.accent, fontSize: 13 }}>
-              {opt.label}
-            </Text>
-          </Pressable>
-        ))}
+        {REMINDER_OPTIONS.map((opt) => {
+          const active = !customReminder && reminder === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              style={[styles.chip, { borderColor: theme.accent }, active && { backgroundColor: theme.accent }]}
+              onPress={() => { setCustomReminder(false); setReminder(opt.value); }}
+            >
+              <Text style={{ color: active ? "#fff" : theme.accent, fontSize: 13 }}>{opt.label}</Text>
+            </Pressable>
+          );
+        })}
+        {/* Frei einstellbar: blendet Stunden-/Minuten-Wählräder ein */}
+        <Pressable
+          style={[styles.chip, { borderColor: theme.accent }, customReminder && { backgroundColor: theme.accent }]}
+          onPress={() => {
+            setCustomReminder(true);
+            // Bei Umschalten aus einem Preset einen sinnvollen Startwert setzen.
+            if (reminder < 0 || REMINDER_PRESET_VALUES.includes(reminder)) setReminder(120);
+          }}
+        >
+          <Text style={{ color: customReminder ? "#fff" : theme.accent, fontSize: 13 }}>Frei…</Text>
+        </Pressable>
       </View>
+
+      {customReminder && (
+        <View style={styles.customReminderRow}>
+          <Text style={[styles.customReminderLabel, { color: theme.text }]}>
+            {Math.floor(reminder / 60)} Std {reminder % 60} Min vorher
+          </Text>
+          <DateTimePicker
+            value={minutesToWheelDate(reminder)}
+            mode="time"
+            display="spinner"
+            locale="de-DE"
+            is24Hour
+            onChange={(_, d) => { if (d) setReminder(d.getHours() * 60 + d.getMinutes()); }}
+          />
+        </View>
+      )}
 
       <Text style={[styles.label, { color: theme.textMuted }]}>Ort</Text>
       <TextInput
@@ -344,6 +381,8 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5,
   },
+  customReminderRow: { marginTop: 8, alignItems: "center" },
+  customReminderLabel: { fontSize: 14, fontWeight: "500", marginBottom: -4 },
   switchRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16,
   },
