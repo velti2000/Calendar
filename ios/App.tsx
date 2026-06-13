@@ -35,11 +35,14 @@ export default function App() {
   // danach die Erinnerungen neu planen (falls aktiviert).
   useEffect(() => {
     (async () => {
-      const { settings, syncFromServer } = useStore.getState();
+      const { settings, syncFromServer, syncTodoist } = useStore.getState();
       if (settings.dataSource === "caldav") {
         // Fehler hier nicht stoerend melden – die App zeigt einfach den
         // letzten lokalen Stand; manueller Sync geht in den Einstellungen.
         await syncFromServer().catch(() => {});
+      }
+      if (settings.todoistEnabled) {
+        await syncTodoist().catch(() => {}); // Todoist-Aufgaben (rein lesend) holen
       }
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) {

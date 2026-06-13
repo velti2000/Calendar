@@ -23,12 +23,14 @@ import type { Calendar, CalEvent, Settings } from "../types";
 import { getDemoCalendars, getDemoEvents } from "../data/demoData";
 import { expandRecurring } from "../data/ical";
 import * as caldav from "../data/caldav";
+import { fetchTodoistTasks } from "../data/todoist";
 import { dayKey } from "../utils/dates";
 
-// Beide Zugangsdaten liegen im iOS-Schluesselbund (expo-secure-store),
+// Zugangsdaten liegen im iOS-Schluesselbund (expo-secure-store),
 // nicht im normalen App-Speicher.
 const PASSWORD_KEY = "mailbox.password";
 const USERNAME_KEY = "mailbox.username";
+const TODOIST_TOKEN_KEY = "todoist.token";
 
 /** Standard-Einstellungen beim allerersten Start. */
 function defaultSettings(): Settings {
@@ -42,6 +44,7 @@ function defaultSettings(): Settings {
     notificationsEnabled: false,
     dataSource: "demo",
     username: "",
+    todoistEnabled: false,
   };
 }
 
@@ -50,6 +53,8 @@ interface StoreState {
   events: CalEvent[];
   settings: Settings;
   syncing: boolean;
+  // NUR-LESEND geladene Todoist-Aufgaben (Overlay, nie zum Server geschrieben).
+  todoistTasks: CalEvent[];
 
   // Schreiben (lokal; Server-Sync macht der Aufrufer ueber syncToServer-Helfer)
   addEvent: (data: Partial<CalEvent>) => CalEvent;
@@ -62,6 +67,8 @@ interface StoreState {
 
   // CalDAV
   syncFromServer: () => Promise<void>;
+  // Todoist (rein lesend)
+  syncTodoist: () => Promise<void>;
 }
 
 /** Erzeugt eine einfache, eindeutige UID fuer neue Termine. */
@@ -76,6 +83,7 @@ export const useStore = create<StoreState>()(
       events: getDemoEvents(),
       settings: defaultSettings(),
       syncing: false,
+      todoistTasks: [],
 
       addEvent: (data) => {
         const event: CalEvent = {
@@ -171,12 +179,27 @@ export const useStore = create<StoreState>()(
           set({ syncing: false });
         }
       },
+
+      /**
+       * Laedt Todoist-Aufgaben (rein lesend) und legt sie als Overlay ab.
+       * Ist Todoist aus oder kein Token hinterlegt, wird das Overlay geleert.
+       */
+      syncTodoist: async () => {
+        if (!get().settings.todoistEnabled) { set({ todoistTasks: [] }); return; }
+        const token = await getTodoistToken();
+        if (!token) { set({ todoistTasks: [] }); return; }
+        const tasks = await fetchTodoistTasks(token);
+        set({ todoistTasks: tasks });
+      },
     }),
     {
       name: "calendar.state.v1",
       storage: createJSONStorage(() => AsyncStorage),
       // syncing ist fluechtiger UI-Zustand und wird nicht gespeichert.
-      partialize: (s) => ({ calendars: s.calendars, events: s.events, settings: s.settings }),
+      partialize: (s) => ({
+        calendars: s.calendars, events: s.events, settings: s.settings,
+        todoistTasks: s.todoistTasks, // Overlay zwischenspeichern (Offline-Anzeige)
+      }),
       // Gespeicherten Zustand mit den aktuellen Standardwerten zusammenfuehren,
       // damit NEU hinzugekommene Einstellungen (z.B. dayStartHour) nicht
       // undefined sind, wenn der gespeicherte Stand sie noch nicht kennt.
@@ -222,6 +245,17 @@ export async function getStoredUsername(): Promise<string> {
 export async function clearCredentials(): Promise<void> {
   await SecureStore.deleteItemAsync(PASSWORD_KEY);
   await SecureStore.deleteItemAsync(USERNAME_KEY);
+}
+
+/** Speichert das Todoist-API-Token im Schluesselbund. */
+export async function saveTodoistToken(token: string): Promise<void> {
+  if (token) await SecureStore.setItemAsync(TODOIST_TOKEN_KEY, token);
+  else await SecureStore.deleteItemAsync(TODOIST_TOKEN_KEY);
+}
+
+/** Liest das Todoist-API-Token aus dem Schluesselbund (oder null). */
+export async function getTodoistToken(): Promise<string | null> {
+  return SecureStore.getItemAsync(TODOIST_TOKEN_KEY);
 }
 
 export async function getCredentials(): Promise<caldav.Credentials | null> {
@@ -311,19 +345,25 @@ export function getExpandedEvents(events: CalEvent[]): CalEvent[] {
   return expandRecurring(events, windowStart, windowEnd);
 }
 
-/** Nur die Termine sichtbarer Kalender – inkl. aufgeloester Serienvorkommen. */
-export function getVisibleEvents(events: CalEvent[], calendars: Calendar[]): CalEvent[] {
+/**
+ * Nur die Termine sichtbarer Kalender – inkl. aufgeloester Serienvorkommen.
+ * `extra` sind zusaetzliche, NUR-LESENDE Overlay-Eintraege (z.B. Todoist), die
+ * NICHT an Kalender-Sichtbarkeit gebunden sind und unveraendert angehaengt werden.
+ */
+export function getVisibleEvents(events: CalEvent[], calendars: Calendar[], extra: CalEvent[] = []): CalEvent[] {
   const visibleIds = new Set(calendars.filter((c) => c.visible).map((c) => c.id));
-  return getExpandedEvents(events).filter((e) => visibleIds.has(e.calendarId));
+  const visible = getExpandedEvents(events).filter((e) => visibleIds.has(e.calendarId));
+  return extra.length ? [...visible, ...extra] : visible;
 }
 
 /**
  * Gruppiert die sichtbaren Termine nach Tagesschluessel ("YYYY-MM-DD").
  * Mehrtaegige Termine erscheinen an jedem betroffenen Tag.
+ * `extra` = zusaetzliche Overlay-Eintraege (z.B. Todoist).
  */
-export function getEventsByDay(events: CalEvent[], calendars: Calendar[]): Map<string, CalEvent[]> {
+export function getEventsByDay(events: CalEvent[], calendars: Calendar[], extra: CalEvent[] = []): Map<string, CalEvent[]> {
   const map = new Map<string, CalEvent[]>();
-  for (const event of getVisibleEvents(events, calendars)) {
+  for (const event of getVisibleEvents(events, calendars, extra)) {
     const start = new Date(event.start);
     let end = new Date(event.end);
 

@@ -32,6 +32,11 @@ export interface CalEvent {
   // Felder fuer den CalDAV-Sync:
   href?: string;          // Server-Adresse der .ics-Ressource
   etag?: string;          // Versionskennung (optimistische Sperre)
+  // Felder fuer externe, NUR-LESENDE Quellen (z.B. Todoist). Solche Eintraege
+  // werden niemals zum CalDAV-Server geschrieben oder im Editor geaendert.
+  source?: "todoist";     // Herkunft (fehlt = normaler Kalendertermin)
+  color?: string;         // eigene Farbe des Eintrags (ueberschreibt Kalenderfarbe)
+  externalUrl?: string;   // Link in die Quelle (z.B. Aufgabe in der Todoist-App)
 }
 
 /** Einstellungen der App. */
@@ -47,4 +52,7 @@ export interface Settings {
   // Benutzername fuer mailbox.org. Das PASSWORT liegt NICHT hier, sondern
   // sicher im iOS-Schluesselbund (expo-secure-store) – siehe store/useStore.ts.
   username: string;
+  // Todoist-Aufgaben (mit Faelligkeit) NUR LESEND im Kalender anzeigen.
+  // Das API-Token liegt im Schluesselbund, nicht hier.
+  todoistEnabled: boolean;
 }

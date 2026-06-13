@@ -131,6 +131,11 @@ CalDAV-/mailbox.org-kompatibel (auch andere Apps zeigen die Serie korrekt).
 - [x] Wochenansicht (7 Tage nebeneinander, gleiche Logik wie Tagesansicht;
       Überlappungs-/Ganztages-Logik geteilt in `utils/timeline.ts`).
       Öffnen durch Tippen auf die KW-Zahl in der Monatsansicht
+- [x] Start-Stunde für Tages-/Wochenansicht in den Einstellungen wählbar
+- [x] Todoist NUR LESEND als Overlay (Aufgaben mit Fälligkeit, in Todoist-Rot):
+      API-Token im Schlüsselbund, Schalter in den Einstellungen, Antippen zeigt
+      Info + „In Todoist öffnen". Schreibt nie nach Todoist; `source:"todoist"`
+      hält die Einträge aus CalDAV-Schreibpfad und Editor heraus
 - [x] App-Icon (Kalendermotiv im App-Blau, erzeugt mit `tools/make_icon.py`)
 - [ ] Hintergrund-Sync (Background Fetch), damit Erinnerungen auch für neue
       Server-Termine geplant werden, ohne die App zu öffnen

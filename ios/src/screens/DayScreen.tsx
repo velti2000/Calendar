@@ -22,10 +22,12 @@ import { useStore, getEventsByDay } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
 import { dateFromKey, dayKey, isToday, formatLongDate, formatTime } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
+import { presentTodoistTask } from "../data/todoist";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
 
+const EMPTY: CalEvent[] = []; // stabile Referenz, wenn Todoist aus ist
 const HOUR_H = 45;          // Hoehe einer Stunde in Pixeln (flach)
 const GUTTER = 48;          // Breite der Uhrzeit-Spalte links
 const MIN_BLOCK_H = 22;     // Mindesthoehe eines Termin-Blocks (Lesbarkeit)
@@ -36,6 +38,9 @@ export default function DayScreen({ route, navigation }: Props) {
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
   const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
+  const todoistTasks = useStore((s) => s.todoistTasks);
+  const todoistEnabled = useStore((s) => s.settings.todoistEnabled);
+  const overlay = todoistEnabled ? todoistTasks : EMPTY;
 
   const date = dateFromKey(route.params.dateKey);
   const dayStart = useMemo(
@@ -44,8 +49,8 @@ export default function DayScreen({ route, navigation }: Props) {
   );
 
   const dayEvents = useMemo(
-    () => getEventsByDay(events, calendars).get(route.params.dateKey) || [],
-    [events, calendars, route.params.dateKey]
+    () => getEventsByDay(events, calendars, overlay).get(route.params.dateKey) || [],
+    [events, calendars, overlay, route.params.dateKey]
   );
   const calById = useMemo(() => new Map(calendars.map((c) => [c.id, c])), [calendars]);
 
@@ -71,11 +76,14 @@ export default function DayScreen({ route, navigation }: Props) {
     return () => clearTimeout(id);
   }, [route.params.dateKey, dayStartHour]);
 
-  const openEvent = (item: CalEvent) =>
+  const openEvent = (item: CalEvent) => {
+    // Todoist-Aufgaben sind nur lesend -> nur Info anzeigen, nicht den Editor.
+    if (item.source === "todoist") { presentTodoistTask(item); return; }
     navigation.navigate("EventEditor", {
       uid: item.recurringMaster || item.uid,
       occurrenceDateKey: item.recurringMaster ? dayKey(new Date(item.start)) : undefined,
     });
+  };
 
   /** Neuen Termin an einer angetippten Stunde anlegen. */
   const newEventAtHour = (hour: number) =>
@@ -93,7 +101,7 @@ export default function DayScreen({ route, navigation }: Props) {
           </View>
           <View style={styles.allDayChips}>
             {allDay.map((ev) => {
-              const color = calById.get(ev.calendarId)?.color || theme.accent;
+              const color = ev.color || calById.get(ev.calendarId)?.color || theme.accent;
               return (
                 <Pressable
                   key={ev.uid}
@@ -137,7 +145,7 @@ export default function DayScreen({ route, navigation }: Props) {
         >
           {areaWidth > 0 && timed.map((p) => {
             const cal = calById.get(p.event.calendarId);
-            const color = cal?.color || theme.accent;
+            const color = p.event.color || cal?.color || theme.accent;
             const colW = areaWidth / p.cols;
             const top = (p.startMin / 60) * HOUR_H;
             const height = Math.max(MIN_BLOCK_H, ((p.endMin - p.startMin) / 60) * HOUR_H - GAP);

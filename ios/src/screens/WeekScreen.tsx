@@ -25,9 +25,12 @@ import {
   isoWeekNumber, isWeekend, WEEKDAYS_SHORT, formatTime,
 } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
+import { presentTodoistTask } from "../data/todoist";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Week">;
+
+const EMPTY: CalEvent[] = []; // stabile Referenz, wenn Todoist aus ist
 
 const HOUR_H = 45;          // Hoehe einer Stunde (wie Tagesansicht)
 const GUTTER = 32;          // schmale Uhrzeit-Spalte links (Woche braucht Platz)
@@ -39,12 +42,15 @@ export default function WeekScreen({ route, navigation }: Props) {
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
   const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
+  const todoistTasks = useStore((s) => s.todoistTasks);
+  const todoistEnabled = useStore((s) => s.settings.todoistEnabled);
+  const overlay = todoistEnabled ? todoistTasks : EMPTY;
 
   // Montag der Woche bestimmen, in der das uebergebene Datum liegt.
   const monday = useMemo(() => startOfWeekMonday(dateFromKey(route.params.dateKey)), [route.params.dateKey]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(monday, i)), [monday]);
 
-  const byDay = useMemo(() => getEventsByDay(events, calendars), [events, calendars]);
+  const byDay = useMemo(() => getEventsByDay(events, calendars, overlay), [events, calendars, overlay]);
   const calById = useMemo(() => new Map(calendars.map((c) => [c.id, c])), [calendars]);
 
   // Pro Tag: ganztaegige und (positionierte) Zeit-Termine.
@@ -72,11 +78,14 @@ export default function WeekScreen({ route, navigation }: Props) {
     return () => clearTimeout(id);
   }, [route.params.dateKey, dayStartHour]);
 
-  const openEvent = (item: CalEvent) =>
+  const openEvent = (item: CalEvent) => {
+    // Todoist-Aufgaben sind nur lesend -> nur Info anzeigen.
+    if (item.source === "todoist") { presentTodoistTask(item); return; }
     navigation.navigate("EventEditor", {
       uid: item.recurringMaster || item.uid,
       occurrenceDateKey: item.recurringMaster ? dayKey(new Date(item.start)) : undefined,
     });
+  };
 
   const newEventAt = (day: Date, hour: number) =>
     navigation.navigate("EventEditor", { dateKey: dayKey(day), startHour: hour });
@@ -120,7 +129,7 @@ export default function WeekScreen({ route, navigation }: Props) {
           {perDay.map((d, i) => (
             <View key={i} style={styles.allDayDayCell}>
               {d.allDay.map((ev) => {
-                const color = calById.get(ev.calendarId)?.color || theme.accent;
+                const color = ev.color || calById.get(ev.calendarId)?.color || theme.accent;
                 return (
                   <Pressable
                     key={ev.uid}
@@ -176,7 +185,7 @@ export default function WeekScreen({ route, navigation }: Props) {
                 {/* Termin-Bloecke */}
                 {colWidth > 0 && d.timed.map((p) => {
                   const cal = calById.get(p.event.calendarId);
-                  const color = cal?.color || theme.accent;
+                  const color = p.event.color || cal?.color || theme.accent;
                   const w = (colWidth - 2) / p.cols;
                   const top = (p.startMin / 60) * HOUR_H;
                   const height = Math.max(MIN_BLOCK_H, ((p.endMin - p.startMin) / 60) * HOUR_H - GAP);

@@ -16,7 +16,10 @@ import {
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
-import { useStore, savePassword, saveUsername, getStoredUsername, getCredentials } from "../store/useStore";
+import {
+  useStore, savePassword, saveUsername, getStoredUsername, getCredentials,
+  saveTodoistToken, getTodoistToken,
+} from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
 import * as caldav from "../data/caldav";
 import { requestPermission, rescheduleAll } from "../notifications/reminders";
@@ -24,7 +27,7 @@ import type { Settings } from "../types";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer } = useStore();
+  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer, syncTodoist } = useStore();
 
   // Fallback, falls ein gespeicherter Zustand das Feld noch nicht kennt.
   const dayStartHour = settings.dayStartHour ?? 6;
@@ -34,11 +37,53 @@ export default function SettingsScreen() {
   const [hasStoredPassword, setHasStoredPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [todoistToken, setTodoistToken] = useState("");
+  const [hasStoredTodoistToken, setHasStoredTodoistToken] = useState(false);
+
   // Beim Oeffnen: gespeicherte Zugangsdaten aus dem Schluesselbund laden.
   useEffect(() => {
     getStoredUsername().then(setUsername);
     SecureStore.getItemAsync("mailbox.password").then((p) => setHasStoredPassword(!!p));
+    getTodoistToken().then((t) => setHasStoredTodoistToken(!!t));
   }, []);
+
+  /** Todoist-Token speichern und – falls aktiviert – gleich laden. */
+  const saveTodoist = async () => {
+    if (todoistToken) {
+      await saveTodoistToken(todoistToken);
+      setHasStoredTodoistToken(true);
+      setTodoistToken("");
+    }
+    if (settings.todoistEnabled) {
+      setBusy(true);
+      try {
+        await syncTodoist();
+        Alert.alert("Gespeichert", `Todoist-Aufgaben geladen: ${useStore.getState().todoistTasks.length}.`);
+      } catch (err: any) {
+        Alert.alert("Todoist-Fehler", String(err?.message ?? err));
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      Alert.alert("Gespeichert", "Token gespeichert. Aktiviere „Aufgaben anzeigen“, um sie zu laden.");
+    }
+  };
+
+  /** Todoist-Anzeige ein-/ausschalten. */
+  const toggleTodoist = async (enabled: boolean) => {
+    updateSettings({ todoistEnabled: enabled });
+    setBusy(true);
+    try {
+      await syncTodoist(); // laedt bei an / leert bei aus
+      if (enabled && !(await getTodoistToken())) {
+        Alert.alert("Token fehlt", "Bitte zuerst dein Todoist-API-Token eintragen und speichern.");
+      }
+    } catch (err: any) {
+      Alert.alert("Todoist-Fehler", String(err?.message ?? err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   /**
    * Benutzername + Passwort im Schluesselbund speichern. Wird ein ANDERES Konto
@@ -268,6 +313,36 @@ export default function SettingsScreen() {
             { text: "Laden", onPress: () => { resetToDemo(); updateSettings({ dataSource: "demo" }); } },
           ]);
         }} theme={theme} disabled={busy} />
+      </View>
+
+      {/* ---------- Todoist (nur lesend) ---------- */}
+      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>TODOIST (NUR LESEN)</Text>
+      <View style={section}>
+        <View style={styles.switchRow}>
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Aufgaben anzeigen</Text>
+          <Switch value={settings.todoistEnabled} onValueChange={toggleTodoist} disabled={busy} />
+        </View>
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Zeigt Todoist-Aufgaben mit Fälligkeit im Kalender an (in Todoist-Rot).
+          Es wird nur gelesen – Aufgaben verwaltest du in der Todoist-App.
+        </Text>
+
+        <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>API-Token</Text>
+        <TextInput
+          style={inputStyle} value={todoistToken} onChangeText={setTodoistToken}
+          secureTextEntry autoCapitalize="none"
+          placeholder={hasStoredTodoistToken ? "•••••• (gespeichert)" : "Todoist-API-Token"}
+          placeholderTextColor={theme.textMuted}
+        />
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Zu finden in Todoist → Einstellungen → Integrationen → Entwickler.
+          Wird sicher im iOS-Schlüsselbund gespeichert.
+        </Text>
+
+        <ActionButton
+          label={busy ? "Lade …" : "Token speichern & laden"}
+          onPress={saveTodoist} theme={theme} disabled={busy}
+        />
       </View>
 
       {/* ---------- Sicherheit ---------- */}

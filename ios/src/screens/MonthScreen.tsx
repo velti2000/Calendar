@@ -33,6 +33,7 @@ import type { CalEvent } from "../types";
 type Props = NativeStackScreenProps<RootStackParamList, "Month">;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EMPTY: CalEvent[] = []; // stabile Referenz, wenn Todoist aus ist
 const BAR_H = 15;       // Hoehe eines Mehrtages-Balkens
 const BAR_GAP = 2;      // Abstand zwischen Balken-Ebenen
 const DAYNUM_H = 18;    // Hoehe der Tagesnummern-Zeile (flach)
@@ -102,6 +103,10 @@ export default function MonthScreen({ navigation }: Props) {
 
   const syncing = useStore((s) => s.syncing);
   const syncFromServer = useStore((s) => s.syncFromServer);
+  const syncTodoist = useStore((s) => s.syncTodoist);
+  const todoistTasks = useStore((s) => s.todoistTasks);
+  // Todoist-Overlay nur einblenden, wenn aktiviert.
+  const overlay = settings.todoistEnabled ? todoistTasks : EMPTY;
 
   const [monthDate, setMonthDate] = useState(new Date());
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -119,6 +124,7 @@ export default function MonthScreen({ navigation }: Props) {
     }
     try {
       await syncFromServer();
+      if (useStore.getState().settings.todoistEnabled) await syncTodoist();
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
     } catch (err: any) {
@@ -127,10 +133,10 @@ export default function MonthScreen({ navigation }: Props) {
   };
 
   const grid = useMemo(() => buildMonthGrid(monthDate), [monthDate]);
-  const byDay = useMemo(() => getEventsByDay(events, calendars), [events, calendars]);
+  const byDay = useMemo(() => getEventsByDay(events, calendars, overlay), [events, calendars, overlay]);
   const multiDayEvents = useMemo(
-    () => getVisibleEvents(events, calendars).filter(isMultiDayAllDay),
-    [events, calendars]
+    () => getVisibleEvents(events, calendars, overlay).filter(isMultiDayAllDay),
+    [events, calendars, overlay]
   );
   const colorById = useMemo(
     () => new Map(calendars.map((c) => [c.id, c.color])),
@@ -361,7 +367,7 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
       {barSpace > 0 && <View style={{ height: barSpace }} />}
 
       {shown.map((ev) => {
-        const color = colorById.get(ev.calendarId) || theme.accent;
+        const color = ev.color || colorById.get(ev.calendarId) || theme.accent;
         return ev.allDay ? (
           // Ganztags (eintaegig): farbig hinterlegter Balken.
           <View key={ev.uid} style={[styles.allDayChip, { backgroundColor: color }]}>
