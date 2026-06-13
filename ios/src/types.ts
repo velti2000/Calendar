@@ -39,6 +39,7 @@ export interface Settings {
   theme: "auto" | "light" | "dark";
   navPosition: "bottom" | "top";   // Position der Navigationsleiste
   eventFontSize: number;           // Schriftgroesse der Termine (Monatsansicht)
+  dayStartHour: number;            // Stunde (0–23), zu der Tag/Woche beim Oeffnen scrollt
   readOnly: boolean;               // Sicherheit: keine Server-Schreibzugriffe
   defaultReminder: number;         // Standard-Erinnerung in Minuten (-1 = keine)
   notificationsEnabled: boolean;

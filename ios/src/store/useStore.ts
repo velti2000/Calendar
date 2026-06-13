@@ -36,6 +36,7 @@ function defaultSettings(): Settings {
     theme: "auto",
     navPosition: "bottom",
     eventFontSize: 9,
+    dayStartHour: 6,       // Tag/Woche scrollen beim Oeffnen auf 6:00 Uhr
     readOnly: true,        // Sicherheit: zunaechst keine Server-Schreibzugriffe
     defaultReminder: 30,
     notificationsEnabled: false,
@@ -176,6 +177,17 @@ export const useStore = create<StoreState>()(
       storage: createJSONStorage(() => AsyncStorage),
       // syncing ist fluechtiger UI-Zustand und wird nicht gespeichert.
       partialize: (s) => ({ calendars: s.calendars, events: s.events, settings: s.settings }),
+      // Gespeicherten Zustand mit den aktuellen Standardwerten zusammenfuehren,
+      // damit NEU hinzugekommene Einstellungen (z.B. dayStartHour) nicht
+      // undefined sind, wenn der gespeicherte Stand sie noch nicht kennt.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<typeof current>;
+        return {
+          ...current,
+          ...p,
+          settings: { ...current.settings, ...(p.settings ?? {}) },
+        };
+      },
     }
   )
 );

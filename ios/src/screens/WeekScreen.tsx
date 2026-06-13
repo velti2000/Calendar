@@ -30,7 +30,6 @@ import type { CalEvent } from "../types";
 type Props = NativeStackScreenProps<RootStackParamList, "Week">;
 
 const HOUR_H = 45;          // Hoehe einer Stunde (wie Tagesansicht)
-const DEFAULT_TOP_HOUR = 6; // beim Oeffnen sichtbare oberste Stunde
 const GUTTER = 32;          // schmale Uhrzeit-Spalte links (Woche braucht Platz)
 const MIN_BLOCK_H = 16;     // Mindesthoehe eines Termin-Blocks
 const GAP = 1;              // Abstand zwischen parallelen Spalten innerhalb eines Tages
@@ -39,6 +38,7 @@ export default function WeekScreen({ route, navigation }: Props) {
   const theme = useTheme();
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
+  const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
 
   // Montag der Woche bestimmen, in der das uebergebene Datum liegt.
   const monday = useMemo(() => startOfWeekMonday(dateFromKey(route.params.dateKey)), [route.params.dateKey]);
@@ -65,12 +65,12 @@ export default function WeekScreen({ route, navigation }: Props) {
     navigation.setOptions({ title: `KW ${isoWeekNumber(monday)}` });
   }, [navigation, monday]);
 
-  // Beim Oeffnen so scrollen, dass 6:00 Uhr oben sichtbar ist.
+  // Beim Oeffnen so scrollen, dass die eingestellte Start-Stunde oben sitzt.
   React.useEffect(() => {
-    const y = DEFAULT_TOP_HOUR * HOUR_H;
+    const y = dayStartHour * HOUR_H;
     const id = setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50);
     return () => clearTimeout(id);
-  }, [route.params.dateKey]);
+  }, [route.params.dateKey, dayStartHour]);
 
   const openEvent = (item: CalEvent) =>
     navigation.navigate("EventEditor", {

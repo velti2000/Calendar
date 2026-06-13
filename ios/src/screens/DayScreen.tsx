@@ -27,7 +27,6 @@ import type { CalEvent } from "../types";
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
 
 const HOUR_H = 45;          // Hoehe einer Stunde in Pixeln (flach)
-const DEFAULT_TOP_HOUR = 6; // beim Oeffnen sichtbare oberste Stunde
 const GUTTER = 48;          // Breite der Uhrzeit-Spalte links
 const MIN_BLOCK_H = 22;     // Mindesthoehe eines Termin-Blocks (Lesbarkeit)
 const GAP = 3;              // Abstand zwischen parallelen Spalten / Bloecken
@@ -36,6 +35,7 @@ export default function DayScreen({ route, navigation }: Props) {
   const theme = useTheme();
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
+  const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
 
   const date = dateFromKey(route.params.dateKey);
   const dayStart = useMemo(
@@ -62,14 +62,14 @@ export default function DayScreen({ route, navigation }: Props) {
     navigation.setOptions({ title: formatLongDate(date) });
   }, [navigation, route.params.dateKey]);
 
-  // Beim Oeffnen so scrollen, dass 6:00 Uhr ganz oben sichtbar ist.
+  // Beim Oeffnen so scrollen, dass die eingestellte Start-Stunde oben sitzt.
   const today = isToday(date);
   const nowMin = today ? (Date.now() - dayStart) / 60000 : -1;
   React.useEffect(() => {
-    const y = DEFAULT_TOP_HOUR * HOUR_H;
+    const y = dayStartHour * HOUR_H;
     const id = setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50);
     return () => clearTimeout(id);
-  }, [route.params.dateKey]);
+  }, [route.params.dateKey, dayStartHour]);
 
   const openEvent = (item: CalEvent) =>
     navigation.navigate("EventEditor", {

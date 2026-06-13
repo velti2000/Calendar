@@ -26,6 +26,9 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer } = useStore();
 
+  // Fallback, falls ein gespeicherter Zustand das Feld noch nicht kennt.
+  const dayStartHour = settings.dayStartHour ?? 6;
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [hasStoredPassword, setHasStoredPassword] = useState(false);
@@ -178,6 +181,31 @@ export default function SettingsScreen() {
         </View>
         <Text style={[styles.hint, { color: theme.textMuted }]}>
           Beispiel: <Text style={{ fontSize: settings.eventFontSize, color: theme.accent }}>09:00 Zahnarzt</Text>
+        </Text>
+
+        {/* Start-Stunde fuer Tages-/Wochenansicht */}
+        <View style={[styles.switchRow, { marginTop: 14 }]}>
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Startzeit Tag/Woche</Text>
+          <View style={styles.fontStepper}>
+            <Pressable
+              style={[styles.stepBtn, { borderColor: theme.accent, opacity: dayStartHour <= 0 ? 0.35 : 1 }]}
+              disabled={dayStartHour <= 0}
+              onPress={() => updateSettings({ dayStartHour: dayStartHour - 1 })}
+            >
+              <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>−</Text>
+            </Pressable>
+            <Text style={[styles.stepValue, { color: theme.text }]}>{dayStartHour} Uhr</Text>
+            <Pressable
+              style={[styles.stepBtn, { borderColor: theme.accent, opacity: dayStartHour >= 23 ? 0.35 : 1 }]}
+              disabled={dayStartHour >= 23}
+              onPress={() => updateSettings({ dayStartHour: dayStartHour + 1 })}
+            >
+              <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>+</Text>
+            </Pressable>
+          </View>
+        </View>
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Beim Öffnen der Tages- und Wochenansicht wird automatisch zu dieser Uhrzeit gescrollt.
         </Text>
       </View>
 
