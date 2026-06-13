@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
-import { useStore, savePassword, getCredentials } from "../store/useStore";
+import { useStore, savePassword, saveUsername, getStoredUsername, getCredentials } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
 import * as caldav from "../data/caldav";
 import { requestPermission, rescheduleAll } from "../notifications/reminders";
@@ -24,32 +24,54 @@ import type { Settings } from "../types";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, syncFromServer } = useStore();
+  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer } = useStore();
 
-  const [username, setUsername] = useState(settings.username);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [hasStoredPassword, setHasStoredPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Beim Oeffnen: gespeicherte Zugangsdaten aus dem Schluesselbund laden.
   useEffect(() => {
+    getStoredUsername().then(setUsername);
     SecureStore.getItemAsync("mailbox.password").then((p) => setHasStoredPassword(!!p));
   }, []);
 
-  /** Benutzername + Passwort speichern (Passwort in den Schluesselbund). */
+  /**
+   * Benutzername + Passwort im Schluesselbund speichern. Wird ein ANDERES Konto
+   * eingegeben als bisher, werden die lokalen Daten des alten Kontos aus der
+   * App geloescht (der Server bleibt unberuehrt).
+   */
   const saveAccount = async () => {
-    updateSettings({ username: username.trim() });
+    const newUsername = username.trim();
+    const oldUsername = await getStoredUsername();
+    const switchedAccount = !!oldUsername && !!newUsername && oldUsername !== newUsername;
+
+    await saveUsername(newUsername);
+    // Evtl. noch im normalen Speicher liegenden Klartext-Namen entfernen.
+    if (settings.username) updateSettings({ username: "" });
     if (password) {
       await savePassword(password);
       setHasStoredPassword(true);
       setPassword("");
     }
-    Alert.alert("Gespeichert", "Zugangsdaten wurden gespeichert.");
+
+    if (switchedAccount) {
+      clearData(); // Termine + Kalender des alten Kontos aus der App entfernen
+      // dataSource bleibt "caldav" – der Sync-Button lädt dann das neue Konto.
+      Alert.alert(
+        "Konto gewechselt",
+        "Die Termine des vorherigen Kontos wurden aus der App entfernt (der Server bleibt unverändert). Tippe auf „Jetzt synchronisieren“, um die Termine des neuen Kontos zu laden."
+      );
+    } else {
+      Alert.alert("Gespeichert", "Zugangsdaten wurden im Schlüsselbund gespeichert.");
+    }
   };
 
   const testConnection = async () => {
     setBusy(true);
     try {
-      updateSettings({ username: username.trim() });
+      await saveUsername(username.trim());
       if (password) { await savePassword(password); setHasStoredPassword(true); setPassword(""); }
       const creds = await getCredentials();
       if (!creds) throw new Error("Bitte zuerst Benutzername und Passwort eintragen.");

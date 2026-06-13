@@ -9,7 +9,7 @@
  * Nach jeder Aenderung werden die lokalen Erinnerungen neu geplant.
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View, Text, TextInput, Switch, Pressable, ScrollView, Alert, StyleSheet,
 } from "react-native";
@@ -43,6 +43,18 @@ export default function EventEditorScreen({ route, navigation }: Props) {
     ? events.find((e) => e.uid === route.params.uid) || null
     : null;
 
+  // Als Kategorie nur die in den Einstellungen AKTIVIERTEN (sichtbaren) Kalender
+  // anbieten. Ausnahme: Bearbeitet man einen Termin, dessen Kalender gerade
+  // ausgeblendet ist, bleibt dieser dennoch waehlbar (sonst ginge er verloren).
+  const categoryOptions = useMemo(() => {
+    const visible = calendars.filter((c) => c.visible);
+    if (existing && !visible.some((c) => c.id === existing.calendarId)) {
+      const current = calendars.find((c) => c.id === existing.calendarId);
+      if (current) return [current, ...visible];
+    }
+    return visible;
+  }, [calendars, existing]);
+
   // Anfangswerte: bestehender Termin ODER neuer Termin. Standard-Beginn 8:00,
   // oder die in der Tagesansicht angetippte Stunde (startHour).
   const baseDay = route.params.dateKey ? dateFromKey(route.params.dateKey) : new Date();
@@ -51,7 +63,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
   const defaultEnd = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour + 1, 0);
 
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [calendarId, setCalendarId] = useState(existing?.calendarId ?? calendars[0]?.id ?? "");
+  const [calendarId, setCalendarId] = useState(existing?.calendarId ?? categoryOptions[0]?.id ?? "");
   const [allDay, setAllDay] = useState(existing?.allDay ?? false);
   const [start, setStart] = useState(existing ? new Date(existing.start) : defaultStart);
   const [end, setEnd] = useState(existing ? new Date(existing.end) : defaultEnd);
@@ -225,7 +237,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
 
       <Text style={[styles.label, { color: theme.textMuted }]}>Kategorie</Text>
       <View style={styles.chipRow}>
-        {calendars.map((cal) => (
+        {categoryOptions.map((cal) => (
           <Pressable
             key={cal.id}
             style={[

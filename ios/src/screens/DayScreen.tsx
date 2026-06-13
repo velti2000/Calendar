@@ -25,7 +25,8 @@ import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
 
-const HOUR_H = 56;          // Hoehe einer Stunde in Pixeln
+const HOUR_H = 45;          // Hoehe einer Stunde in Pixeln (flach)
+const DEFAULT_TOP_HOUR = 6; // beim Oeffnen sichtbare oberste Stunde
 const GUTTER = 48;          // Breite der Uhrzeit-Spalte links
 const MIN_BLOCK_H = 22;     // Mindesthoehe eines Termin-Blocks (Lesbarkeit)
 const GAP = 3;              // Abstand zwischen parallelen Spalten / Bloecken
@@ -117,16 +118,11 @@ export default function DayScreen({ route, navigation }: Props) {
     navigation.setOptions({ title: formatLongDate(date) });
   }, [navigation, route.params.dateKey]);
 
-  // Beim Oeffnen zur sinnvollen Stelle scrollen: aktuelle Zeit (heute),
-  // sonst zum ersten Termin, sonst 7:00 Uhr.
+  // Beim Oeffnen so scrollen, dass 6:00 Uhr ganz oben sichtbar ist.
   const today = isToday(date);
   const nowMin = today ? (Date.now() - dayStart) / 60000 : -1;
   React.useEffect(() => {
-    const target =
-      today && nowMin >= 0 ? nowMin
-      : timed.length ? Math.min(...timed.map((p) => p.startMin))
-      : 7 * 60;
-    const y = Math.max(0, (target / 60) * HOUR_H - 80);
+    const y = DEFAULT_TOP_HOUR * HOUR_H;
     const id = setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50);
     return () => clearTimeout(id);
   }, [route.params.dateKey]);

@@ -14,7 +14,7 @@
  */
 
 import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
+import { View, Text, Pressable, Modal, Alert, ActivityIndicator, StyleSheet } from "react-native";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -22,6 +22,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../navigation";
 import { useStore, getEventsByDay, getVisibleEvents } from "../store/useStore";
+import { rescheduleAll } from "../notifications/reminders";
 import { useTheme } from "../theme/useTheme";
 import {
   buildMonthGrid, dayKey, isToday, isWeekend, formatMonthTitle,
@@ -99,9 +100,31 @@ export default function MonthScreen({ navigation }: Props) {
   const calendars = useStore((s) => s.calendars);
   const settings = useStore((s) => s.settings);
 
+  const syncing = useStore((s) => s.syncing);
+  const syncFromServer = useStore((s) => s.syncFromServer);
+
   const [monthDate, setMonthDate] = useState(new Date());
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpDate, setJumpDate] = useState(new Date());
+
+  /** Sync Server -> App (Button neben der Lupe). */
+  const doSync = async () => {
+    if (syncing) return;
+    if (settings.dataSource !== "caldav") {
+      Alert.alert(
+        "Kein Konto verbunden",
+        "Bitte zuerst in den Einstellungen mit mailbox.org verbinden und einmal synchronisieren."
+      );
+      return;
+    }
+    try {
+      await syncFromServer();
+      const s = useStore.getState();
+      if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
+    } catch (err: any) {
+      Alert.alert("Sync fehlgeschlagen", String(err?.message ?? err));
+    }
+  };
 
   const grid = useMemo(() => buildMonthGrid(monthDate), [monthDate]);
   const byDay = useMemo(() => getEventsByDay(events, calendars), [events, calendars]);
@@ -154,15 +177,27 @@ export default function MonthScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
-      {/* Obere Leiste */}
+      {/* Obere Leiste: links Einstellungen · mittig Monat · rechts Sync + Suche */}
       <View style={[styles.topBar, { borderColor: theme.border }]}>
-        <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Settings")}>
-          <Text style={[styles.gearIcon, { color: theme.textMuted }]}>⚙︎</Text>
-        </Pressable>
+        <View style={styles.topBarSide}>
+          <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Settings")}>
+            <Text style={[styles.gearIcon, { color: theme.textMuted }]}>⚙︎</Text>
+          </Pressable>
+        </View>
+
         <Text style={[styles.title, { color: theme.text }]}>{formatMonthTitle(monthDate)}</Text>
-        <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Search")}>
-          <Text style={[styles.icon, { color: theme.textMuted }]}>🔍</Text>
-        </Pressable>
+
+        <View style={[styles.topBarSide, styles.topBarRight]}>
+          {/* Synchronisieren – links neben der Lupe */}
+          <Pressable style={styles.iconBtn} onPress={doSync} disabled={syncing}>
+            {syncing
+              ? <ActivityIndicator size="small" color={theme.textMuted} />
+              : <Text style={[styles.icon, { color: theme.textMuted }]}>↻</Text>}
+          </Pressable>
+          <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Search")}>
+            <Text style={[styles.icon, { color: theme.textMuted }]}>🔍</Text>
+          </Pressable>
+        </View>
       </View>
 
       {settings.navPosition === "top" && navBar}
@@ -356,10 +391,13 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 8, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  // Beide Seiten gleich breit, damit der Monatstitel exakt mittig bleibt.
+  topBarSide: { flexDirection: "row", alignItems: "center", minWidth: 96 },
+  topBarRight: { justifyContent: "flex-end" },
   iconBtn: { padding: 8, minWidth: 44, alignItems: "center" },
-  icon: { fontSize: 20 },
+  icon: { fontSize: 22 },
   gearIcon: { fontSize: 34, lineHeight: 36 }, // Textglyph ⚙︎ wirkt sonst winzig neben dem Emoji
-  title: { fontSize: 18, fontWeight: "600" },
+  title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "600" },
   weekdayRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   weekdayCell: { flex: 1, alignItems: "center", paddingVertical: 4 },
   weekdayText: { fontSize: 12, fontWeight: "600" },

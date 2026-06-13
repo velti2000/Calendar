@@ -25,7 +25,10 @@ import { expandRecurring } from "../data/ical";
 import * as caldav from "../data/caldav";
 import { dayKey } from "../utils/dates";
 
+// Beide Zugangsdaten liegen im iOS-Schluesselbund (expo-secure-store),
+// nicht im normalen App-Speicher.
 const PASSWORD_KEY = "mailbox.password";
+const USERNAME_KEY = "mailbox.username";
 
 /** Standard-Einstellungen beim allerersten Start. */
 function defaultSettings(): Settings {
@@ -54,6 +57,7 @@ interface StoreState {
   toggleCalendarVisible: (id: string) => void;
   updateSettings: (changes: Partial<Settings>) => void;
   resetToDemo: () => void;
+  clearData: () => void;
 
   // CalDAV
   syncFromServer: () => Promise<void>;
@@ -125,6 +129,15 @@ export const useStore = create<StoreState>()(
       },
 
       /**
+       * Loescht alle lokal gespeicherten Kalender und Termine aus der App.
+       * Der SERVER bleibt unberuehrt. Wird beim Kontowechsel verwendet, damit
+       * keine Daten des alten Kontos in der App zurueckbleiben.
+       */
+      clearData: () => {
+        set({ calendars: [], events: [] });
+      },
+
+      /**
        * Sync Server -> App: Kalender entdecken, Termine laden, Daten ersetzen.
        * Die Sichtbarkeits-Auswahl bereits bekannter Kalender bleibt erhalten.
        */
@@ -176,8 +189,31 @@ export async function savePassword(password: string): Promise<void> {
   else await SecureStore.deleteItemAsync(PASSWORD_KEY);
 }
 
+/** Speichert den Benutzernamen (E-Mail) im Schluesselbund. */
+export async function saveUsername(username: string): Promise<void> {
+  if (username) await SecureStore.setItemAsync(USERNAME_KEY, username);
+  else await SecureStore.deleteItemAsync(USERNAME_KEY);
+}
+
+/**
+ * Liest den gespeicherten Benutzernamen aus dem Schluesselbund. Faellt auf den
+ * frueher im normalen Speicher abgelegten Wert zurueck (Migration aelterer
+ * Versionen) – dieser wird beim naechsten Speichern entfernt.
+ */
+export async function getStoredUsername(): Promise<string> {
+  const fromKeychain = await SecureStore.getItemAsync(USERNAME_KEY);
+  if (fromKeychain) return fromKeychain;
+  return useStore.getState().settings.username || "";
+}
+
+/** Loescht beide Zugangsdaten aus dem Schluesselbund (z.B. beim Abmelden). */
+export async function clearCredentials(): Promise<void> {
+  await SecureStore.deleteItemAsync(PASSWORD_KEY);
+  await SecureStore.deleteItemAsync(USERNAME_KEY);
+}
+
 export async function getCredentials(): Promise<caldav.Credentials | null> {
-  const { username } = useStore.getState().settings;
+  const username = await getStoredUsername();
   const password = await SecureStore.getItemAsync(PASSWORD_KEY);
   if (!username || !password) return null;
   return { username, password };
