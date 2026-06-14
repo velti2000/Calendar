@@ -15,8 +15,12 @@ export interface BandRect {
   color: string;
 }
 
-/** Deckkraft-Suffix fuer die Hintergrund-Toenung (Hex-Alpha, dezent). */
-export const BAND_ALPHA = "33";
+/** Formatiert eine (halbe) Stunde als "HH:MM", z.B. 14.5 -> "14:30", 24 -> "24:00". */
+export function formatBandHour(h: number): string {
+  const hh = Math.floor(h);
+  const mm = h - hh >= 0.5 ? "30" : "00";
+  return `${String(hh).padStart(2, "0")}:${mm}`;
+}
 
 /**
  * Berechnet die sichtbaren Rechtecke aller AKTIVEN Phasen.

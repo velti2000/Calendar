@@ -26,7 +26,8 @@ import {
 } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
 import { presentOverlayItem } from "../utils/overlayUi";
-import { bandRects, BAND_ALPHA } from "../utils/timeBands";
+import { bandRects } from "../utils/timeBands";
+import { HatchBand } from "../components/HatchBand";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Week">;
@@ -159,8 +160,8 @@ export default function WeekScreen({ route, navigation }: Props) {
         contentContainerStyle={{ height: 24 * HOUR_H + 12 }}
         showsVerticalScrollIndicator
       >
+        {/* Hintergrund: Uhrzeit-Spalte + 7 Tagesspalten (nur Raster/Hintergrund) */}
         <View style={styles.gridRow}>
-          {/* Uhrzeit-Spalte links */}
           <View style={{ width: GUTTER }}>
             {hours.map((h) => (
               <View key={h} style={{ height: HOUR_H }}>
@@ -171,75 +172,78 @@ export default function WeekScreen({ route, navigation }: Props) {
             ))}
           </View>
 
-          {/* 7 Tagesspalten */}
-          {perDay.map((d, dayIdx) => {
-            const day = days[dayIdx];
-            const today = isToday(day);
-            return (
-              <View
-                key={dayKey(day)}
-                style={[styles.dayColumn, { borderColor: theme.border }, isWeekend(day) && { backgroundColor: theme.weekend }]}
-                onLayout={(e) => { if (dayIdx === 0) setColWidth(e.nativeEvent.layout.width); }}
-              >
-                {/* Stundenzeilen (antippbar = neuer Termin) */}
-                {hours.map((h) => (
-                  <Pressable
-                    key={h}
-                    style={[styles.hourCell, { height: HOUR_H, borderColor: theme.border }]}
-                    onPress={() => newEventAt(day, h)}
-                  />
-                ))}
-
-                {/* Farbige Zeitphasen (ueber dem Raster, unter den Terminen) */}
-                {bands.map((b, i) => (
-                  <View
-                    key={`band-${i}`}
-                    pointerEvents="none"
-                    style={{ position: "absolute", left: 0, right: 0, top: b.top, height: b.height, backgroundColor: b.color + BAND_ALPHA }}
-                  />
-                ))}
-
-                {/* Termin-Bloecke */}
-                {colWidth > 0 && d.timed.map((p) => {
-                  const cal = calById.get(p.event.calendarId);
-                  const color = p.event.color || cal?.color || theme.accent;
-                  const w = (colWidth - 2) / p.cols;
-                  const top = (p.startMin / 60) * HOUR_H;
-                  const height = Math.max(MIN_BLOCK_H, ((p.endMin - p.startMin) / 60) * HOUR_H - GAP);
-                  return (
-                    <Pressable
-                      key={p.event.uid}
-                      onPress={() => openEvent(p.event)}
-                      style={[
-                        styles.eventBlock,
-                        {
-                          top,
-                          left: 1 + p.col * w,
-                          width: w - GAP,
-                          height,
-                          backgroundColor: color + "2C",
-                          borderLeftColor: color,
-                        },
-                      ]}
-                    >
-                      <Text numberOfLines={2} style={[styles.eventTitle, { color: theme.text }]}>
-                        {p.event.title}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-
-                {/* "Jetzt"-Linie nur in der heutigen Spalte */}
-                {today && (
-                  <View pointerEvents="none" style={[styles.nowLine, { top: (nowMin / 60) * HOUR_H }]}>
-                    <View style={[styles.nowDot, { backgroundColor: theme.danger }]} />
-                    <View style={[styles.nowBar, { backgroundColor: theme.danger }]} />
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          {days.map((day, dayIdx) => (
+            <View
+              key={dayKey(day)}
+              style={[styles.dayColumn, { borderColor: theme.border }, isWeekend(day) && { backgroundColor: theme.weekend }]}
+              onLayout={(e) => { if (dayIdx === 0) setColWidth(e.nativeEvent.layout.width); }}
+            >
+              {hours.map((h) => (
+                <Pressable
+                  key={h}
+                  style={[styles.hourCell, { height: HOUR_H, borderColor: theme.border }]}
+                  onPress={() => newEventAt(day, h)}
+                />
+              ))}
+            </View>
+          ))}
         </View>
+
+        {/* DURCHGEHENDE Schraffur ueber alle 7 Spalten (eine Schicht -> keine Brueche) */}
+        <View pointerEvents="none" style={[styles.overlay, { left: GUTTER }]}>
+          {bands.map((b, i) => <HatchBand key={`band-${i}`} rect={b} />)}
+        </View>
+
+        {/* Termine + "Jetzt"-Linie als Overlay darueber (pro Tag versetzt) */}
+        {colWidth > 0 && (
+          <View pointerEvents="box-none" style={[styles.overlay, { left: GUTTER }]}>
+            {perDay.map((d, dayIdx) => {
+              const dayLeft = dayIdx * colWidth;
+              return (
+                <React.Fragment key={dayIdx}>
+                  {d.timed.map((p) => {
+                    const cal = calById.get(p.event.calendarId);
+                    const color = p.event.color || cal?.color || theme.accent;
+                    const w = (colWidth - 2) / p.cols;
+                    const top = (p.startMin / 60) * HOUR_H;
+                    const height = Math.max(MIN_BLOCK_H, ((p.endMin - p.startMin) / 60) * HOUR_H - GAP);
+                    return (
+                      <Pressable
+                        key={p.event.uid}
+                        onPress={() => openEvent(p.event)}
+                        style={[
+                          styles.eventBlock,
+                          {
+                            top,
+                            left: dayLeft + 1 + p.col * w,
+                            width: w - GAP,
+                            height,
+                            backgroundColor: color + "2C",
+                            borderLeftColor: color,
+                          },
+                        ]}
+                      >
+                        <Text numberOfLines={2} style={[styles.eventTitle, { color: theme.text }]}>
+                          {p.event.title}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+
+                  {isToday(days[dayIdx]) && (
+                    <View
+                      pointerEvents="none"
+                      style={[styles.nowLine, { left: dayLeft, width: colWidth, top: (nowMin / 60) * HOUR_H }]}
+                    >
+                      <View style={[styles.nowDot, { backgroundColor: theme.danger }]} />
+                      <View style={[styles.nowBar, { backgroundColor: theme.danger }]} />
+                    </View>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -272,6 +276,9 @@ const styles = StyleSheet.create({
   gridRow: { flexDirection: "row" },
   hourLabel: { fontSize: 9, marginTop: -5, textAlign: "center" },
 
+  // Overlay ueber die 7 Tagesspalten (Schraffur bzw. Termine); left wird inline gesetzt.
+  overlay: { position: "absolute", top: 0, right: 0, height: 24 * HOUR_H },
+
   dayColumn: { flex: 1, borderLeftWidth: StyleSheet.hairlineWidth },
   hourCell: { borderTopWidth: StyleSheet.hairlineWidth },
 
@@ -281,7 +288,7 @@ const styles = StyleSheet.create({
   },
   eventTitle: { fontSize: 9, fontWeight: "600", lineHeight: 11 },
 
-  nowLine: { position: "absolute", left: 0, right: 0, height: 2, flexDirection: "row", alignItems: "center" },
+  nowLine: { position: "absolute", height: 2, flexDirection: "row", alignItems: "center" },
   nowDot: { width: 6, height: 6, borderRadius: 3, marginLeft: -3 },
   nowBar: { flex: 1, height: 2 },
 });

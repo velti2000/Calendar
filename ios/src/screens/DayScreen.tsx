@@ -15,15 +15,17 @@ import React, { useMemo, useRef, useState } from "react";
 import {
   View, Text, Pressable, ScrollView, StyleSheet,
 } from "react-native";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../navigation";
 import { useStore, getEventsByDay } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
-import { dateFromKey, dayKey, isToday, formatLongDate, formatTime } from "../utils/dates";
+import { dateFromKey, dayKey, addDays, isToday, formatLongDate, formatTime } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
 import { presentOverlayItem } from "../utils/overlayUi";
-import { bandRects, BAND_ALPHA } from "../utils/timeBands";
+import { bandRects } from "../utils/timeBands";
+import { HatchBand } from "../components/HatchBand";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
@@ -93,9 +95,38 @@ export default function DayScreen({ route, navigation }: Props) {
     });
   };
 
-  /** Neuen Termin an einer angetippten Stunde anlegen. */
-  const newEventAtHour = (hour: number) =>
+  // Merkt sich, ob gerade gewischt wurde – damit das Loslassen NICHT als Tipp
+  // (neuer Termin) gewertet wird. Die Geste faengt die Bewegung ab, sodass die
+  // Stundenzelle die Wischbewegung sonst als stationaeren Tipp missversteht.
+  const swipingRef = useRef(false);
+
+  /** Neuen Termin an einer angetippten Stunde anlegen (nicht beim Wischen). */
+  const newEventAtHour = (hour: number) => {
+    if (swipingRef.current) return;
     navigation.navigate("EventEditor", { dateKey: route.params.dateKey, startHour: hour });
+  };
+
+  /** Zum vorigen/naechsten Tag wechseln (Wischen). */
+  const goDay = (delta: number) =>
+    navigation.setParams({ dateKey: dayKey(addDays(date, delta)) });
+
+  // Horizontal wischen: links = naechster Tag, rechts = voriger Tag.
+  // activeOffsetX laesst das vertikale Scrollen des Rasters unberuehrt.
+  // Das swipingRef-Flag wird waehrend des AKTIVEN Wischens gesetzt und erst
+  // verzoegert zurueckgesetzt, damit das Loslassen NICHT als Tipp (neuer
+  // Termin) durchrutscht. Bei einem reinen Tipp aktiviert die Pan-Geste nie,
+  // daher bleibt das Flag false und der Tipp funktioniert normal.
+  const swipe = Gesture.Pan()
+    .activeOffsetX([-30, 30])
+    .failOffsetY([-12, 12])
+    .runOnJS(true)
+    .onBegin(() => { swipingRef.current = false; })
+    .onUpdate(() => { swipingRef.current = true; })
+    .onEnd((e) => {
+      if (e.translationX < -60) goDay(1);
+      else if (e.translationX > 60) goDay(-1);
+    })
+    .onFinalize(() => { setTimeout(() => { swipingRef.current = false; }, 150); });
 
   const hours = Array.from({ length: 24 }, (_, h) => h);
 
@@ -124,20 +155,16 @@ export default function DayScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {/* Stunden-Raster */}
+      {/* Stunden-Raster (horizontal wischen wechselt den Tag) */}
+      <GestureDetector gesture={swipe}>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ height: 24 * HOUR_H + 24 }}
         showsVerticalScrollIndicator
       >
-        {/* Farbige Zeitphasen ganz hinten (hinter Stundenlinien und Terminen) */}
+        {/* Farbige/schraffierte Zeitphasen ganz hinten (hinter Linien und Terminen) */}
         <View pointerEvents="none" style={[styles.bandsLayer, { left: GUTTER }]}>
-          {bands.map((b, i) => (
-            <View
-              key={i}
-              style={{ position: "absolute", left: 0, right: 0, top: b.top, height: b.height, backgroundColor: b.color + BAND_ALPHA }}
-            />
-          ))}
+          {bands.map((b, i) => <HatchBand key={i} rect={b} />)}
         </View>
 
         {/* Stundenlinien + Beschriftung; jede Stunde ist antippbar (neuer Termin) */}
@@ -205,6 +232,7 @@ export default function DayScreen({ route, navigation }: Props) {
           )}
         </View>
       </ScrollView>
+      </GestureDetector>
 
       {/* Neuen Termin anlegen */}
       <Pressable

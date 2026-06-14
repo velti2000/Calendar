@@ -284,7 +284,7 @@ export default function MonthScreen({ navigation }: Props) {
                             borderBottomRightRadius: bar.endsHere ? 4 : 0,
                           }}
                         >
-                          <Text numberOfLines={1} style={{ fontSize: settings.eventFontSize, color: "#fff" }}>
+                          <Text numberOfLines={1} ellipsizeMode="clip" style={{ fontSize: settings.eventFontSize, color: "#fff" }}>
                             {bar.event.title}
                           </Text>
                         </View>
@@ -377,7 +377,7 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
         return ev.allDay ? (
           // Ganztags (eintaegig): farbig hinterlegter Balken.
           <View key={ev.uid} style={[styles.allDayChip, { backgroundColor: color }]}>
-            <Text numberOfLines={1} style={[styles.chipText, { fontSize, color: "#fff" }]}>
+            <Text numberOfLines={1} ellipsizeMode="clip" style={[styles.chipText, { fontSize, color: "#fff" }]}>
               {ev.title}
             </Text>
           </View>
@@ -386,6 +386,7 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
           <Text
             key={ev.uid}
             numberOfLines={1}
+            ellipsizeMode="clip"
             style={[styles.chipText, styles.timedText, { fontSize, color }]}
           >
             {formatTime(new Date(ev.start))} {ev.title}

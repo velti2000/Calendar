@@ -24,6 +24,7 @@ import { useTheme } from "../theme/useTheme";
 import * as caldav from "../data/caldav";
 import { requestPermission, rescheduleAll } from "../notifications/reminders";
 import { requestRemindersPermission } from "../data/appleReminders";
+import { formatBandHour } from "../utils/timeBands";
 import type { Settings } from "../types";
 
 export default function SettingsScreen() {
@@ -321,10 +322,11 @@ export default function SettingsScreen() {
               <>
                 <View style={styles.bandTimes}>
                   <Text style={[styles.bandTimeLabel, { color: theme.text }]}>Von</Text>
-                  <Stepper value={band.startHour} min={0} max={23} onChange={(v) => updateBand(i, { startHour: v })} />
+                  <Stepper value={band.startHour} min={0} max={23.5} step={0.5} format={formatBandHour}
+                    onChange={(v) => updateBand(i, { startHour: v })} />
                   <Text style={[styles.bandTimeLabel, { color: theme.text }]}>Bis</Text>
-                  <Stepper value={band.endHour} min={1} max={24} onChange={(v) => updateBand(i, { endHour: v })} />
-                  <Text style={[styles.bandTimeLabel, { color: theme.textMuted }]}>Uhr</Text>
+                  <Stepper value={band.endHour} min={0.5} max={24} step={0.5} format={formatBandHour}
+                    onChange={(v) => updateBand(i, { endHour: v })} />
                 </View>
                 <ColorRow value={band.color} onChange={(c) => updateBand(i, { color: c })} />
               </>
@@ -515,25 +517,27 @@ function ColorRow({ value, onChange }: { value: string; onChange: (c: string) =>
   );
 }
 
-/** Kleiner −/Wert/+ Stepper (fuer Stunden der Zeitphasen). */
-function Stepper({ value, min, max, onChange }: {
+/** Kleiner −/Wert/+ Stepper. `step`/`format` optional (z.B. halbe Stunden, "HH:MM"). */
+function Stepper({ value, min, max, onChange, step = 1, format }: {
   value: number; min: number; max: number; onChange: (v: number) => void;
+  step?: number; format?: (v: number) => string;
 }) {
   const theme = useTheme();
+  const label = format ? format(value) : String(value);
   return (
     <View style={styles.fontStepper}>
       <Pressable
         style={[styles.stepBtn, { borderColor: theme.accent, opacity: value <= min ? 0.35 : 1 }]}
         disabled={value <= min}
-        onPress={() => onChange(value - 1)}
+        onPress={() => onChange(Math.max(min, value - step))}
       >
         <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>−</Text>
       </Pressable>
-      <Text style={[styles.stepValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[styles.stepValue, { color: theme.text }]}>{label}</Text>
       <Pressable
         style={[styles.stepBtn, { borderColor: theme.accent, opacity: value >= max ? 0.35 : 1 }]}
         disabled={value >= max}
-        onPress={() => onChange(value + 1)}
+        onPress={() => onChange(Math.min(max, value + step))}
       >
         <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>+</Text>
       </Pressable>
@@ -589,7 +593,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderRadius: 8, width: 32, height: 32,
     alignItems: "center", justifyContent: "center",
   },
-  stepValue: { fontSize: 16, fontWeight: "600", minWidth: 28, textAlign: "center" },
+  stepValue: { fontSize: 16, fontWeight: "600", minWidth: 46, textAlign: "center" },
   actionBtn: {
     borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10,
   },

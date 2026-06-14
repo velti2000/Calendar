@@ -132,6 +132,9 @@ CalDAV-/mailbox.org-kompatibel (auch andere Apps zeigen die Serie korrekt).
       Überlappungs-/Ganztages-Logik geteilt in `utils/timeline.ts`).
       Öffnen durch Tippen auf die KW-Zahl in der Monatsansicht
 - [x] Start-Stunde für Tages-/Wochenansicht in den Einstellungen wählbar
+- [x] Drei farbige Zeitphasen (Tag/Woche), halbstundengenau, schraffiert
+      (Müdigkeits-/Schlaf-/Nachtphasen); Phasen über Mitternacht möglich.
+      Schraffur via `assets/hatch.png` (tintColor+repeat), kein Rebuild nötig
 - [x] Todoist NUR LESEND als Overlay (Aufgaben mit Fälligkeit):
       API-Token im Schlüsselbund, Schalter in den Einstellungen, Antippen zeigt
       Info + „In Todoist öffnen". Schreibt nie nach Todoist; `source:"todoist"`
