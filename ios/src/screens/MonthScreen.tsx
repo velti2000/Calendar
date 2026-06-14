@@ -104,9 +104,14 @@ export default function MonthScreen({ navigation }: Props) {
   const syncing = useStore((s) => s.syncing);
   const syncFromServer = useStore((s) => s.syncFromServer);
   const syncTodoist = useStore((s) => s.syncTodoist);
+  const syncReminders = useStore((s) => s.syncReminders);
   const todoistTasks = useStore((s) => s.todoistTasks);
-  // Todoist-Overlay nur einblenden, wenn aktiviert.
-  const overlay = settings.todoistEnabled ? todoistTasks : EMPTY;
+  const reminderItems = useStore((s) => s.reminderItems);
+  // NUR-LESEN-Overlays (Todoist + iPhone-Erinnerungen), je nach Schalter.
+  const overlay = useMemo(() => [
+    ...(settings.todoistEnabled ? todoistTasks : EMPTY),
+    ...(settings.remindersEnabled ? reminderItems : EMPTY),
+  ], [settings.todoistEnabled, todoistTasks, settings.remindersEnabled, reminderItems]);
 
   const [monthDate, setMonthDate] = useState(new Date());
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -125,6 +130,7 @@ export default function MonthScreen({ navigation }: Props) {
     try {
       await syncFromServer();
       if (useStore.getState().settings.todoistEnabled) await syncTodoist();
+      if (useStore.getState().settings.remindersEnabled) await syncReminders();
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
     } catch (err: any) {

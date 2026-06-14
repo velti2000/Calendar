@@ -22,7 +22,8 @@ import { useStore, getEventsByDay } from "../store/useStore";
 import { useTheme } from "../theme/useTheme";
 import { dateFromKey, dayKey, isToday, formatLongDate, formatTime } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
-import { presentTodoistTask } from "../data/todoist";
+import { presentOverlayItem } from "../utils/overlayUi";
+import { bandRects, BAND_ALPHA } from "../utils/timeBands";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Day">;
@@ -38,9 +39,16 @@ export default function DayScreen({ route, navigation }: Props) {
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
   const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
+  const timeBands = useStore((s) => s.settings.timeBands);
+  const bands = useMemo(() => bandRects(timeBands, HOUR_H), [timeBands]);
   const todoistTasks = useStore((s) => s.todoistTasks);
   const todoistEnabled = useStore((s) => s.settings.todoistEnabled);
-  const overlay = todoistEnabled ? todoistTasks : EMPTY;
+  const reminderItems = useStore((s) => s.reminderItems);
+  const remindersEnabled = useStore((s) => s.settings.remindersEnabled);
+  const overlay = useMemo(() => [
+    ...(todoistEnabled ? todoistTasks : EMPTY),
+    ...(remindersEnabled ? reminderItems : EMPTY),
+  ], [todoistEnabled, todoistTasks, remindersEnabled, reminderItems]);
 
   const date = dateFromKey(route.params.dateKey);
   const dayStart = useMemo(
@@ -77,8 +85,8 @@ export default function DayScreen({ route, navigation }: Props) {
   }, [route.params.dateKey, dayStartHour]);
 
   const openEvent = (item: CalEvent) => {
-    // Todoist-Aufgaben sind nur lesend -> nur Info anzeigen, nicht den Editor.
-    if (item.source === "todoist") { presentTodoistTask(item); return; }
+    // Externe Overlays (Todoist/Erinnerungen) sind nur lesend -> nur Info.
+    if (item.source) { presentOverlayItem(item); return; }
     navigation.navigate("EventEditor", {
       uid: item.recurringMaster || item.uid,
       occurrenceDateKey: item.recurringMaster ? dayKey(new Date(item.start)) : undefined,
@@ -122,6 +130,16 @@ export default function DayScreen({ route, navigation }: Props) {
         contentContainerStyle={{ height: 24 * HOUR_H + 24 }}
         showsVerticalScrollIndicator
       >
+        {/* Farbige Zeitphasen ganz hinten (hinter Stundenlinien und Terminen) */}
+        <View pointerEvents="none" style={[styles.bandsLayer, { left: GUTTER }]}>
+          {bands.map((b, i) => (
+            <View
+              key={i}
+              style={{ position: "absolute", left: 0, right: 0, top: b.top, height: b.height, backgroundColor: b.color + BAND_ALPHA }}
+            />
+          ))}
+        </View>
+
         {/* Stundenlinien + Beschriftung; jede Stunde ist antippbar (neuer Termin) */}
         {hours.map((h) => (
           <Pressable
@@ -219,6 +237,7 @@ const styles = StyleSheet.create({
   hourGutter: { width: GUTTER, alignItems: "center" },
   hourLabel: { fontSize: 10, marginTop: -6 }, // Label sitzt auf der Stundenlinie
 
+  bandsLayer: { position: "absolute", top: 0, right: 0, bottom: 0 },
   eventLayer: { position: "absolute", top: 0, right: 4, bottom: 0 },
   eventBlock: {
     position: "absolute", borderRadius: 6, borderLeftWidth: 3,

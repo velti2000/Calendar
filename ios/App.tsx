@@ -35,7 +35,7 @@ export default function App() {
   // danach die Erinnerungen neu planen (falls aktiviert).
   useEffect(() => {
     (async () => {
-      const { settings, syncFromServer, syncTodoist } = useStore.getState();
+      const { settings, syncFromServer, syncTodoist, syncReminders } = useStore.getState();
       if (settings.dataSource === "caldav") {
         // Fehler hier nicht stoerend melden – die App zeigt einfach den
         // letzten lokalen Stand; manueller Sync geht in den Einstellungen.
@@ -43,6 +43,9 @@ export default function App() {
       }
       if (settings.todoistEnabled) {
         await syncTodoist().catch(() => {}); // Todoist-Aufgaben (rein lesend) holen
+      }
+      if (settings.remindersEnabled) {
+        await syncReminders().catch(() => {}); // iPhone-Erinnerungen (rein lesend) holen
       }
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) {

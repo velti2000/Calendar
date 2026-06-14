@@ -24,6 +24,7 @@ import { getDemoCalendars, getDemoEvents } from "../data/demoData";
 import { expandRecurring } from "../data/ical";
 import * as caldav from "../data/caldav";
 import { fetchTodoistTasks } from "../data/todoist";
+import { fetchReminders } from "../data/appleReminders";
 import { dayKey } from "../utils/dates";
 
 // Zugangsdaten liegen im iOS-Schluesselbund (expo-secure-store),
@@ -39,12 +40,21 @@ function defaultSettings(): Settings {
     navPosition: "bottom",
     eventFontSize: 9,
     dayStartHour: 6,       // Tag/Woche scrollen beim Oeffnen auf 6:00 Uhr
+    // Drei Zeitphasen, anfangs alle AUS – Beispielwerte als Startpunkt.
+    timeBands: [
+      { enabled: false, startHour: 13, endHour: 15, color: "#F1C40F" }, // z.B. Müdigkeit
+      { enabled: false, startHour: 22, endHour: 24, color: "#7C3AED" }, // z.B. Abend
+      { enabled: false, startHour: 0, endHour: 6, color: "#2B6CB0" },   // z.B. Nacht/Schlaf
+    ],
     readOnly: true,        // Sicherheit: zunaechst keine Server-Schreibzugriffe
     defaultReminder: 30,
     notificationsEnabled: false,
     dataSource: "demo",
     username: "",
     todoistEnabled: false,
+    todoistColor: "#E44332",   // Todoist-Rot
+    remindersEnabled: false,
+    remindersColor: "#7C3AED", // Violett (klar verschieden von Todoist-Rot)
   };
 }
 
@@ -53,8 +63,9 @@ interface StoreState {
   events: CalEvent[];
   settings: Settings;
   syncing: boolean;
-  // NUR-LESEND geladene Todoist-Aufgaben (Overlay, nie zum Server geschrieben).
+  // NUR-LESEND geladene Overlays (nie zum Server/zur Quelle geschrieben).
   todoistTasks: CalEvent[];
+  reminderItems: CalEvent[];
 
   // Schreiben (lokal; Server-Sync macht der Aufrufer ueber syncToServer-Helfer)
   addEvent: (data: Partial<CalEvent>) => CalEvent;
@@ -67,8 +78,9 @@ interface StoreState {
 
   // CalDAV
   syncFromServer: () => Promise<void>;
-  // Todoist (rein lesend)
+  // Externe Quellen (rein lesend)
   syncTodoist: () => Promise<void>;
+  syncReminders: () => Promise<void>;
 }
 
 /** Erzeugt eine einfache, eindeutige UID fuer neue Termine. */
@@ -84,6 +96,7 @@ export const useStore = create<StoreState>()(
       settings: defaultSettings(),
       syncing: false,
       todoistTasks: [],
+      reminderItems: [],
 
       addEvent: (data) => {
         const event: CalEvent = {
@@ -185,11 +198,23 @@ export const useStore = create<StoreState>()(
        * Ist Todoist aus oder kein Token hinterlegt, wird das Overlay geleert.
        */
       syncTodoist: async () => {
-        if (!get().settings.todoistEnabled) { set({ todoistTasks: [] }); return; }
+        const { settings } = get();
+        if (!settings.todoistEnabled) { set({ todoistTasks: [] }); return; }
         const token = await getTodoistToken();
         if (!token) { set({ todoistTasks: [] }); return; }
-        const tasks = await fetchTodoistTasks(token);
+        const tasks = await fetchTodoistTasks(token, settings.todoistColor);
         set({ todoistTasks: tasks });
+      },
+
+      /**
+       * Laedt iPhone-Erinnerungen (rein lesend) und legt sie als Overlay ab.
+       * Ist die Funktion aus oder keine Berechtigung vorhanden, wird geleert.
+       */
+      syncReminders: async () => {
+        const { settings } = get();
+        if (!settings.remindersEnabled) { set({ reminderItems: [] }); return; }
+        const items = await fetchReminders(settings.remindersColor);
+        set({ reminderItems: items });
       },
     }),
     {
@@ -198,7 +223,8 @@ export const useStore = create<StoreState>()(
       // syncing ist fluechtiger UI-Zustand und wird nicht gespeichert.
       partialize: (s) => ({
         calendars: s.calendars, events: s.events, settings: s.settings,
-        todoistTasks: s.todoistTasks, // Overlay zwischenspeichern (Offline-Anzeige)
+        // Overlays zwischenspeichern (Offline-Anzeige bis zum naechsten Sync).
+        todoistTasks: s.todoistTasks, reminderItems: s.reminderItems,
       }),
       // Gespeicherten Zustand mit den aktuellen Standardwerten zusammenfuehren,
       // damit NEU hinzugekommene Einstellungen (z.B. dayStartHour) nicht

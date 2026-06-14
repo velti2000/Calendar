@@ -132,10 +132,15 @@ CalDAV-/mailbox.org-kompatibel (auch andere Apps zeigen die Serie korrekt).
       Überlappungs-/Ganztages-Logik geteilt in `utils/timeline.ts`).
       Öffnen durch Tippen auf die KW-Zahl in der Monatsansicht
 - [x] Start-Stunde für Tages-/Wochenansicht in den Einstellungen wählbar
-- [x] Todoist NUR LESEND als Overlay (Aufgaben mit Fälligkeit, in Todoist-Rot):
+- [x] Todoist NUR LESEND als Overlay (Aufgaben mit Fälligkeit):
       API-Token im Schlüsselbund, Schalter in den Einstellungen, Antippen zeigt
       Info + „In Todoist öffnen". Schreibt nie nach Todoist; `source:"todoist"`
       hält die Einträge aus CalDAV-Schreibpfad und Editor heraus
+- [x] iPhone-„Erinnerungen" NUR LESEND als Overlay (via expo-calendar, EventKit):
+      Schalter + Berechtigung in den Einstellungen, `source:"reminders"`.
+      Braucht NATIVEN Rebuild (neues Modul) – JS-Reload reicht NICHT
+- [x] Farbe für Todoist- und Erinnerungs-Overlays in den Einstellungen wählbar
+      (Farbpaletten-Auswahl); externe Einträge tragen ihre Farbe im `color`-Feld
 - [x] App-Icon (Kalendermotiv im App-Blau, erzeugt mit `tools/make_icon.py`)
 - [ ] Hintergrund-Sync (Background Fetch), damit Erinnerungen auch für neue
       Server-Termine geplant werden, ohne die App zu öffnen

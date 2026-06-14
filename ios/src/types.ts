@@ -34,9 +34,21 @@ export interface CalEvent {
   etag?: string;          // Versionskennung (optimistische Sperre)
   // Felder fuer externe, NUR-LESENDE Quellen (z.B. Todoist). Solche Eintraege
   // werden niemals zum CalDAV-Server geschrieben oder im Editor geaendert.
-  source?: "todoist";     // Herkunft (fehlt = normaler Kalendertermin)
+  source?: "todoist" | "reminders"; // Herkunft (fehlt = normaler Kalendertermin)
   color?: string;         // eigene Farbe des Eintrags (ueberschreibt Kalenderfarbe)
   externalUrl?: string;   // Link in die Quelle (z.B. Aufgabe in der Todoist-App)
+}
+
+/**
+ * Eine farbig hinterlegte Zeitphase (nur Tages-/Wochenansicht), z.B. eine
+ * Müdigkeits-, Schlaf- oder Nachtphase. Stundengenau. Phasen ueber Mitternacht
+ * sind erlaubt (endHour <= startHour, z.B. 22–6 Uhr).
+ */
+export interface TimeBand {
+  enabled: boolean;
+  startHour: number;  // 0–23
+  endHour: number;    // 1–24 (24 = Mitternacht)
+  color: string;
 }
 
 /** Einstellungen der App. */
@@ -45,6 +57,7 @@ export interface Settings {
   navPosition: "bottom" | "top";   // Position der Navigationsleiste
   eventFontSize: number;           // Schriftgroesse der Termine (Monatsansicht)
   dayStartHour: number;            // Stunde (0–23), zu der Tag/Woche beim Oeffnen scrollt
+  timeBands: TimeBand[];           // farbige Zeitphasen (nur Tag/Woche), genau 3
   readOnly: boolean;               // Sicherheit: keine Server-Schreibzugriffe
   defaultReminder: number;         // Standard-Erinnerung in Minuten (-1 = keine)
   notificationsEnabled: boolean;
@@ -55,4 +68,8 @@ export interface Settings {
   // Todoist-Aufgaben (mit Faelligkeit) NUR LESEND im Kalender anzeigen.
   // Das API-Token liegt im Schluesselbund, nicht hier.
   todoistEnabled: boolean;
+  todoistColor: string;            // Farbe der Todoist-Eintraege
+  // iPhone-Erinnerungen (Apple "Erinnerungen") NUR LESEND anzeigen.
+  remindersEnabled: boolean;
+  remindersColor: string;          // Farbe der Erinnerungs-Eintraege
 }

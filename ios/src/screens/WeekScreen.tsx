@@ -25,7 +25,8 @@ import {
   isoWeekNumber, isWeekend, WEEKDAYS_SHORT, formatTime,
 } from "../utils/dates";
 import { positionTimedEvents } from "../utils/timeline";
-import { presentTodoistTask } from "../data/todoist";
+import { presentOverlayItem } from "../utils/overlayUi";
+import { bandRects, BAND_ALPHA } from "../utils/timeBands";
 import type { CalEvent } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Week">;
@@ -42,9 +43,16 @@ export default function WeekScreen({ route, navigation }: Props) {
   const events = useStore((s) => s.events);
   const calendars = useStore((s) => s.calendars);
   const dayStartHour = useStore((s) => s.settings.dayStartHour ?? 6);
+  const timeBands = useStore((s) => s.settings.timeBands);
+  const bands = useMemo(() => bandRects(timeBands, HOUR_H), [timeBands]);
   const todoistTasks = useStore((s) => s.todoistTasks);
   const todoistEnabled = useStore((s) => s.settings.todoistEnabled);
-  const overlay = todoistEnabled ? todoistTasks : EMPTY;
+  const reminderItems = useStore((s) => s.reminderItems);
+  const remindersEnabled = useStore((s) => s.settings.remindersEnabled);
+  const overlay = useMemo(() => [
+    ...(todoistEnabled ? todoistTasks : EMPTY),
+    ...(remindersEnabled ? reminderItems : EMPTY),
+  ], [todoistEnabled, todoistTasks, remindersEnabled, reminderItems]);
 
   // Montag der Woche bestimmen, in der das uebergebene Datum liegt.
   const monday = useMemo(() => startOfWeekMonday(dateFromKey(route.params.dateKey)), [route.params.dateKey]);
@@ -79,8 +87,8 @@ export default function WeekScreen({ route, navigation }: Props) {
   }, [route.params.dateKey, dayStartHour]);
 
   const openEvent = (item: CalEvent) => {
-    // Todoist-Aufgaben sind nur lesend -> nur Info anzeigen.
-    if (item.source === "todoist") { presentTodoistTask(item); return; }
+    // Externe Overlays (Todoist/Erinnerungen) sind nur lesend -> nur Info.
+    if (item.source) { presentOverlayItem(item); return; }
     navigation.navigate("EventEditor", {
       uid: item.recurringMaster || item.uid,
       occurrenceDateKey: item.recurringMaster ? dayKey(new Date(item.start)) : undefined,
@@ -179,6 +187,15 @@ export default function WeekScreen({ route, navigation }: Props) {
                     key={h}
                     style={[styles.hourCell, { height: HOUR_H, borderColor: theme.border }]}
                     onPress={() => newEventAt(day, h)}
+                  />
+                ))}
+
+                {/* Farbige Zeitphasen (ueber dem Raster, unter den Terminen) */}
+                {bands.map((b, i) => (
+                  <View
+                    key={`band-${i}`}
+                    pointerEvents="none"
+                    style={{ position: "absolute", left: 0, right: 0, top: b.top, height: b.height, backgroundColor: b.color + BAND_ALPHA }}
                   />
                 ))}
 

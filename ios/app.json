@@ -11,7 +11,11 @@
       "bundleIdentifier": "net.gmx.velti2000.kalender",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "de",
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSRemindersFullAccessUsageDescription": "Die App zeigt deine iPhone-Erinnerungen (mit Fälligkeit) nur lesend im Kalender an.",
+        "NSRemindersUsageDescription": "Die App zeigt deine iPhone-Erinnerungen (mit Fälligkeit) nur lesend im Kalender an.",
+        "NSCalendarsFullAccessUsageDescription": "Wird vom Erinnerungs-Modul technisch vorausgesetzt. Die App greift nicht auf deine iOS-Kalender zu.",
+        "NSCalendarsUsageDescription": "Wird vom Erinnerungs-Modul technisch vorausgesetzt. Die App greift nicht auf deine iOS-Kalender zu."
       }
     },
     "android": {
@@ -34,6 +38,12 @@
         "expo-notifications",
         {
           "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "remindersPermission": "Die App zeigt deine iPhone-Erinnerungen (mit Fälligkeit) nur lesend im Kalender an."
         }
       ]
     ]

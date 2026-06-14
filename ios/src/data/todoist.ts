@@ -14,15 +14,13 @@
  * Entwickler). Es liegt sicher im iOS-Schluesselbund (siehe store/useStore.ts).
  */
 
-import { Alert, Linking } from "react-native";
 import type { CalEvent } from "../types";
-import { formatTime } from "../utils/dates";
 
 // Neue, vereinheitlichte Todoist-API v1. Die alte REST-v2
 // (https://api.todoist.com/rest/v2/tasks) wurde abgeschaltet und liefert 410.
 const API_URL = "https://api.todoist.com/api/v1/tasks";
 
-/** Einheitliche Farbe fuer alle Todoist-Eintraege (Todoist-Rot). */
+/** Standardfarbe fuer Todoist-Eintraege (Todoist-Rot), in den Einstellungen aenderbar. */
 export const TODOIST_COLOR = "#E44332";
 
 /** Die fuer uns relevanten Felder einer Todoist-Aufgabe. */
@@ -48,7 +46,7 @@ interface TasksResponse {
  * Die v1-API liefert Seiten zu je `limit` Aufgaben; wir folgen `next_cursor`.
  * @param token Todoist-API-Token
  */
-export async function fetchTodoistTasks(token: string): Promise<CalEvent[]> {
+export async function fetchTodoistTasks(token: string, color: string): Promise<CalEvent[]> {
   const headers = { Authorization: `Bearer ${token}` };
   const events: CalEvent[] = [];
 
@@ -78,7 +76,7 @@ export async function fetchTodoistTasks(token: string): Promise<CalEvent[]> {
     for (const task of list) {
       // Eine einzelne kaputte Aufgabe darf NIE den ganzen Sync abbrechen.
       try {
-        const ev = mapTask(task);
+        const ev = mapTask(task, color);
         if (ev) events.push(ev);
       } catch {
         // Aufgabe mit unverstaendlichem Datum o.Ae. einfach ueberspringen.
@@ -127,7 +125,7 @@ function parseTodoistDate(value: string): Date | null {
 }
 
 /** Wandelt eine Aufgabe in ein NUR-LESENDES CalEvent um (oder null ohne gueltige Faelligkeit). */
-function mapTask(task: TodoistTask): CalEvent | null {
+function mapTask(task: TodoistTask, color: string): CalEvent | null {
   const due = task.due;
   if (!due) return null;
 
@@ -148,7 +146,7 @@ function mapTask(task: TodoistTask): CalEvent | null {
     reminders: [],          // keine eigenen Benachrichtigungen (Todoist erinnert selbst)
     rrule: null,
     source: "todoist" as const,
-    color: TODOIST_COLOR,
+    color,
     // v1 liefert evtl. kein url-Feld -> aus der ID einen Web-Link bauen.
     externalUrl: task.url || `https://app.todoist.com/app/task/${task.id}`,
   };
@@ -162,23 +160,4 @@ function mapTask(task: TodoistTask): CalEvent | null {
   // Nur Datum: Ganztages-Eintrag (Ende = Folgetag 00:00, iCal-Konvention).
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
   return { ...base, allDay: true, start: start.toISOString(), end: end.toISOString() };
-}
-
-/**
- * Zeigt eine Todoist-Aufgabe als Info-Dialog an (rein lesend). Statt den
- * Termin-Editor zu oeffnen, kann man die Aufgabe optional in der Todoist-App
- * oeffnen – verwaltet wird sie dort, nicht in dieser App.
- */
-export function presentTodoistTask(ev: CalEvent): void {
-  const when = ev.allDay
-    ? "Fällig: ganztägig"
-    : `Fällig: ${formatTime(new Date(ev.start))} Uhr`;
-
-  const buttons: { text: string; onPress?: () => void; style?: "cancel" }[] = [];
-  if (ev.externalUrl) {
-    buttons.push({ text: "In Todoist öffnen", onPress: () => Linking.openURL(ev.externalUrl!) });
-  }
-  buttons.push({ text: "Schließen", style: "cancel" });
-
-  Alert.alert(ev.title, `Todoist-Aufgabe\n${when}`, buttons);
 }

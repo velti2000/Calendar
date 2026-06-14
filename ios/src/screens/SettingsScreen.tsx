@@ -23,11 +23,12 @@ import {
 import { useTheme } from "../theme/useTheme";
 import * as caldav from "../data/caldav";
 import { requestPermission, rescheduleAll } from "../notifications/reminders";
+import { requestRemindersPermission } from "../data/appleReminders";
 import type { Settings } from "../types";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer, syncTodoist } = useStore();
+  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer, syncTodoist, syncReminders } = useStore();
 
   // Fallback, falls ein gespeicherter Zustand das Feld noch nicht kennt.
   const dayStartHour = settings.dayStartHour ?? 6;
@@ -82,6 +83,46 @@ export default function SettingsScreen() {
       Alert.alert("Todoist-Fehler", String(err?.message ?? err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** iPhone-Erinnerungen ein-/ausschalten (beim Einschalten Berechtigung anfragen). */
+  const toggleReminders = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestRemindersPermission();
+      if (!granted) {
+        Alert.alert(
+          "Nicht erlaubt",
+          "Bitte den Zugriff auf „Erinnerungen“ in den iOS-Einstellungen erlauben."
+        );
+        return;
+      }
+    }
+    updateSettings({ remindersEnabled: enabled });
+    setBusy(true);
+    try {
+      await syncReminders(); // laedt bei an / leert bei aus
+    } catch (err: any) {
+      Alert.alert("Erinnerungen-Fehler", String(err?.message ?? err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Eine Zeitphase (per Index) teilweise aktualisieren. */
+  const updateBand = (index: number, patch: Partial<Settings["timeBands"][number]>) => {
+    const bands = (settings.timeBands ?? []).map((b, i) => (i === index ? { ...b, ...patch } : b));
+    updateSettings({ timeBands: bands });
+  };
+
+  /** Farbe einer Overlay-Quelle aendern und neu einfaerben. */
+  const changeOverlayColor = async (which: "todoist" | "reminders", color: string) => {
+    if (which === "todoist") {
+      updateSettings({ todoistColor: color });
+      if (settings.todoistEnabled) await syncTodoist().catch(() => {});
+    } else {
+      updateSettings({ remindersColor: color });
+      if (settings.remindersEnabled) await syncReminders().catch(() => {});
     }
   };
 
@@ -254,6 +295,44 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
+      {/* ---------- Zeitphasen (Tag/Woche) ---------- */}
+      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>ZEITPHASEN (TAG/WOCHE)</Text>
+      <View style={section}>
+        <Text style={[styles.hint, { color: theme.textMuted, marginTop: 0 }]}>
+          Hinterlegt bestimmte Uhrzeiten farbig – z.B. Müdigkeits-, Schlaf- oder
+          Nachtphasen. Nur zur Orientierung bei der Planung; erscheint nur in
+          Tages- und Wochenansicht. Phasen über Mitternacht sind möglich (z.B. 22–6 Uhr).
+        </Text>
+
+        {(settings.timeBands ?? []).map((band, i) => (
+          <View
+            key={i}
+            style={[styles.bandBlock, i > 0 && { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth }]}
+          >
+            <View style={styles.switchRow}>
+              <View style={styles.calName}>
+                <View style={[styles.dot, { backgroundColor: band.color, opacity: band.enabled ? 1 : 0.3 }]} />
+                <Text style={[styles.rowLabel, { color: theme.text }]}>Phase {i + 1}</Text>
+              </View>
+              <Switch value={band.enabled} onValueChange={(v) => updateBand(i, { enabled: v })} />
+            </View>
+
+            {band.enabled && (
+              <>
+                <View style={styles.bandTimes}>
+                  <Text style={[styles.bandTimeLabel, { color: theme.text }]}>Von</Text>
+                  <Stepper value={band.startHour} min={0} max={23} onChange={(v) => updateBand(i, { startHour: v })} />
+                  <Text style={[styles.bandTimeLabel, { color: theme.text }]}>Bis</Text>
+                  <Stepper value={band.endHour} min={1} max={24} onChange={(v) => updateBand(i, { endHour: v })} />
+                  <Text style={[styles.bandTimeLabel, { color: theme.textMuted }]}>Uhr</Text>
+                </View>
+                <ColorRow value={band.color} onChange={(c) => updateBand(i, { color: c })} />
+              </>
+            )}
+          </View>
+        ))}
+      </View>
+
       {/* ---------- Kalender ---------- */}
       <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>KALENDER</Text>
       <View style={section}>
@@ -323,8 +402,8 @@ export default function SettingsScreen() {
           <Switch value={settings.todoistEnabled} onValueChange={toggleTodoist} disabled={busy} />
         </View>
         <Text style={[styles.hint, { color: theme.textMuted }]}>
-          Zeigt Todoist-Aufgaben mit Fälligkeit im Kalender an (in Todoist-Rot).
-          Es wird nur gelesen – Aufgaben verwaltest du in der Todoist-App.
+          Zeigt Todoist-Aufgaben mit Fälligkeit im Kalender an. Es wird nur
+          gelesen – Aufgaben verwaltest du in der Todoist-App.
         </Text>
 
         <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>API-Token</Text>
@@ -339,10 +418,29 @@ export default function SettingsScreen() {
           Wird sicher im iOS-Schlüsselbund gespeichert.
         </Text>
 
+        <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>Farbe</Text>
+        <ColorRow value={settings.todoistColor} onChange={(c) => changeOverlayColor("todoist", c)} />
+
         <ActionButton
           label={busy ? "Lade …" : "Token speichern & laden"}
           onPress={saveTodoist} theme={theme} disabled={busy}
         />
+      </View>
+
+      {/* ---------- iPhone-Erinnerungen (nur lesend) ---------- */}
+      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>iPHONE-ERINNERUNGEN (NUR LESEN)</Text>
+      <View style={section}>
+        <View style={styles.switchRow}>
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Erinnerungen anzeigen</Text>
+          <Switch value={settings.remindersEnabled} onValueChange={toggleReminders} disabled={busy} />
+        </View>
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Zeigt fällige Einträge aus der iPhone-App „Erinnerungen“ im Kalender an.
+          Es wird nur gelesen – verwaltet werden sie in der Erinnerungen-App.
+        </Text>
+
+        <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>Farbe</Text>
+        <ColorRow value={settings.remindersColor} onChange={(c) => changeOverlayColor("reminders", c)} />
       </View>
 
       {/* ---------- Sicherheit ---------- */}
@@ -387,6 +485,62 @@ function SegmentRow({ options, value, onChange }: {
   );
 }
 
+/** Auswahl-Palette fuer die Overlay-Farben (Todoist / Erinnerungen). */
+const COLOR_PALETTE = [
+  "#E44332", "#FF9500", "#F1C40F", "#38A169", "#0D9488",
+  "#2B6CB0", "#7C3AED", "#D53F8C", "#718096", "#1A202C",
+];
+
+/** Reihe antippbarer Farb-Punkte; der gewaehlte ist umrandet. */
+function ColorRow({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.colorRow}>
+      {COLOR_PALETTE.map((c) => {
+        const selected = c.toLowerCase() === value.toLowerCase();
+        return (
+          <Pressable
+            key={c}
+            onPress={() => onChange(c)}
+            style={[
+              styles.colorSwatch,
+              { backgroundColor: c, borderColor: selected ? theme.text : "transparent" },
+            ]}
+          >
+            {selected && <Text style={styles.colorCheck}>✓</Text>}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Kleiner −/Wert/+ Stepper (fuer Stunden der Zeitphasen). */
+function Stepper({ value, min, max, onChange }: {
+  value: number; min: number; max: number; onChange: (v: number) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.fontStepper}>
+      <Pressable
+        style={[styles.stepBtn, { borderColor: theme.accent, opacity: value <= min ? 0.35 : 1 }]}
+        disabled={value <= min}
+        onPress={() => onChange(value - 1)}
+      >
+        <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>−</Text>
+      </Pressable>
+      <Text style={[styles.stepValue, { color: theme.text }]}>{value}</Text>
+      <Pressable
+        style={[styles.stepBtn, { borderColor: theme.accent, opacity: value >= max ? 0.35 : 1 }]}
+        disabled={value >= max}
+        onPress={() => onChange(value + 1)}
+      >
+        <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function ActionButton({ label, onPress, theme, disabled }: {
   label: string; onPress: () => void; theme: ReturnType<typeof useTheme>; disabled?: boolean;
 }) {
@@ -412,6 +566,15 @@ const styles = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     paddingVertical: 6,
   },
+  bandBlock: { paddingTop: 8, marginTop: 4 },
+  bandTimes: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" },
+  bandTimeLabel: { fontSize: 15 },
+  colorRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  colorSwatch: {
+    width: 30, height: 30, borderRadius: 15, borderWidth: 3,
+    alignItems: "center", justifyContent: "center",
+  },
+  colorCheck: { color: "#fff", fontSize: 15, fontWeight: "700" },
   calName: { flexDirection: "row", alignItems: "center", gap: 8 },
   dot: { width: 12, height: 12, borderRadius: 6 },
   segmentRow: { flexDirection: "row", gap: 8, marginTop: 8 },
