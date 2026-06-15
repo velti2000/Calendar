@@ -117,20 +117,26 @@ export default function MonthScreen({ navigation }: Props) {
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpDate, setJumpDate] = useState(new Date());
 
-  /** Sync Server -> App (Button neben der Lupe). */
+  /**
+   * Sync-Button neben der Lupe: synchronisiert ALLE aktiven Quellen –
+   * CalDAV (falls verbunden), Todoist und iPhone-Erinnerungen (falls aktiviert).
+   */
   const doSync = async () => {
     if (syncing) return;
-    if (settings.dataSource !== "caldav") {
+    const s0 = useStore.getState().settings;
+    const hasCaldav = s0.dataSource === "caldav";
+
+    if (!hasCaldav && !s0.todoistEnabled && !s0.remindersEnabled) {
       Alert.alert(
-        "Kein Konto verbunden",
-        "Bitte zuerst in den Einstellungen mit mailbox.org verbinden und einmal synchronisieren."
+        "Nichts zu synchronisieren",
+        "Bitte in den Einstellungen mit mailbox.org verbinden oder Todoist/Erinnerungen aktivieren."
       );
       return;
     }
     try {
-      await syncFromServer();
-      if (useStore.getState().settings.todoistEnabled) await syncTodoist();
-      if (useStore.getState().settings.remindersEnabled) await syncReminders();
+      if (hasCaldav) await syncFromServer();
+      if (s0.todoistEnabled) await syncTodoist();
+      if (s0.remindersEnabled) await syncReminders();
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
     } catch (err: any) {
