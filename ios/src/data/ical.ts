@@ -129,6 +129,9 @@ function finishEvent(props: PropMap, calendarId: string, alarmTriggers: ParsedPr
     reminders,
     rrule: props.RRULE ? props.RRULE.value : null,
     exdates,
+    // SEQUENCE (Revisionsnummer) merken – wird beim Zurueckschreiben gebraucht
+    // (Open-Xchange-Konfliktpruefung, siehe types.ts).
+    sequence: props.SEQUENCE ? (parseInt(props.SEQUENCE.value, 10) || 0) : 0,
   };
 }
 
@@ -210,6 +213,12 @@ export function buildICalendar(event: CalEvent): string {
     "BEGIN:VEVENT",
     `UID:${event.uid}`,
     `DTSTAMP:${formatUtc(new Date())}`,
+    // SEQUENCE + LAST-MODIFIED: Open-Xchange (mailbox.org) erkennt Aenderungen
+    // hieran. Ohne (bzw. mit zu niedriger) SEQUENCE lehnt OX das Update mit
+    // HTTP 412 CAL-4121 ab. Der Wert wird vor dem Schreiben hochgezaehlt
+    // (siehe pushEventToServer in store/useStore.ts).
+    `SEQUENCE:${event.sequence ?? 0}`,
+    `LAST-MODIFIED:${formatUtc(new Date())}`,
     formatDateProp("DTSTART", event.start, event.allDay),
     formatDateProp("DTEND", event.end, event.allDay),
     `SUMMARY:${escapeText(event.title)}`,

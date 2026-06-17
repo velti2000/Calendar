@@ -31,7 +31,11 @@ export interface CalEvent {
   recurringMaster?: string; // bei aufgeloesten Vorkommen: UID des Originals
   // Felder fuer den CalDAV-Sync:
   href?: string;          // Server-Adresse der .ics-Ressource
-  etag?: string;          // Versionskennung (optimistische Sperre)
+  etag?: string;          // Versionskennung (optimistische Sperre, HTTP-Ebene)
+  // iCalendar-SEQUENCE (Revisionsnummer des Termins). Open-Xchange (mailbox.org)
+  // prueft diese beim Schreiben: ein Update MUSS eine >= so hohe SEQUENCE haben
+  // wie die gespeicherte, sonst HTTP 412 CAL-4121 ("newer version exists").
+  sequence?: number;
   // Felder fuer externe, NUR-LESENDE Quellen (z.B. Todoist). Solche Eintraege
   // werden niemals zum CalDAV-Server geschrieben oder im Editor geaendert.
   source?: "todoist" | "reminders"; // Herkunft (fehlt = normaler Kalendertermin)

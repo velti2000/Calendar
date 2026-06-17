@@ -331,6 +331,16 @@ export async function pushEventToServer(uid: string): Promise<ServerWriteResult>
     event = useStore.getState().events.find((e) => e.uid === uid)!;
   }
 
+  // SEQUENCE (Revisionsnummer) VOR dem Schreiben hochzaehlen. Open-Xchange
+  // (mailbox.org) akzeptiert ein Update nur, wenn die SEQUENCE >= der
+  // gespeicherten ist – sonst HTTP 412 CAL-4121 ("newer version exists").
+  // Nach einem Sync entspricht event.sequence der Server-SEQUENCE, +1 ist also
+  // garantiert neuer. Der erhoehte Wert wird gespeichert (gilt fuer den PUT
+  // und kuenftige Aenderungen).
+  const nextSequence = (event.sequence ?? 0) + 1;
+  useStore.getState().updateEvent(uid, { sequence: nextSequence });
+  event = useStore.getState().events.find((e) => e.uid === uid)!;
+
   const res = await caldav.pushEvent(cal.url, event, creds);
   useStore.getState().updateEvent(uid, { href: res.href, etag: res.etag ?? undefined });
   return "pushed";

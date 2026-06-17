@@ -34,7 +34,21 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
-## 412-WURZEL GEFUNDEN (2026-06-17, Teil 3)
+## 412 CAL-4121 – ECHTE URSACHE: SEQUENCE (2026-06-17, Teil 4)
+Frischer ETag (Teil 3) hat den Konflikt NICHT geloest -> es ist KEIN HTTP-ETag-
+Problem. Open-Xchange prueft die **iCalendar-`SEQUENCE`** (Revisionsnummer):
+unser `buildICalendar` schrieb gar keine SEQUENCE (=0). Ein schon einmal
+geaenderter Server-Termin hat SEQUENCE>=1 -> beim Zurueckschreiben mit 0 meldet
+OX "newer version exists" (CAL-4121).
+- **Fix**: `CalEvent.sequence` (neu in types.ts), beim Parsen mitgelesen
+  (`data/ical.ts` finishEvent), beim Schreiben ausgegeben als `SEQUENCE` +
+  `LAST-MODIFIED` (buildICalendar). In `store/useStore.ts` pushEventToServer
+  wird SEQUENCE VOR jedem PUT **hochgezaehlt** (+1) -> immer >= Server-Stand.
+- Der fetchCurrentEtag-Retry aus Teil 3 bleibt als Fallback fuer echte
+  ETag-Konflikte erhalten.
+- FALLS WEITER 412: Server-Antworttext steht in der Fehlermeldung -> schicken.
+
+## 412-WURZEL (Teilschritt) (2026-06-17, Teil 3)
 mailbox.org läuft auf **Open-Xchange (OX)**, NICHT SabreDAV. Server-Antwort bei
 412 war `CAL-4121: a newer version already exists` = **Versionskonflikt**. OX
 vergibt ETags teils neu, sodass der beim Sync gespeicherte ETag schon veraltet
