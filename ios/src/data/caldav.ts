@@ -223,7 +223,7 @@ export async function fetchEvents(calendarUrl: string, calendarId: string, creds
     if (!icsText) continue;
 
     const href = resp.href ? new URL(String(resp.href).trim(), calendarUrl).href : undefined;
-    const etag = prop?.getetag ? String(prop.getetag) : undefined;
+    const etag = readEtag(prop?.getetag);
 
     for (const ev of parseICalendar(String(icsText), calendarId)) {
       ev.href = href;   // fuer spaeteres Aendern/Loeschen merken
@@ -243,11 +243,23 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
   const base = calendarUrl.endsWith("/") ? calendarUrl : calendarUrl + "/";
   const targetUrl = event.href || new URL(`${encodeURIComponent(event.uid)}.ics`, base).href;
 
-  const res = await request("PUT", targetUrl, creds, {
+  let res = await request("PUT", targetUrl, creds, {
     contentType: "text/calendar; charset=utf-8",
     ifMatch: event.etag,
     body: ics,
   });
+
+  // HTTP 412 (Precondition Failed) = der gespeicherte ETag passt nicht mehr zum
+  // Server-Stand (z.B. nach einem fremden Sync oder weil ein PUT zuvor keinen
+  // neuen ETag zurueckgab). Fuer diesen persoenlichen Einzel-Kalender gilt
+  // "meine Aenderung gewinnt": einmal ohne If-Match erneut schreiben.
+  if (res.status === 412 && event.etag) {
+    res = await request("PUT", targetUrl, creds, {
+      contentType: "text/calendar; charset=utf-8",
+      body: ics,
+    });
+  }
+
   if (res.status >= 400) throw new Error(`Speichern fehlgeschlagen (HTTP ${res.status}).`);
   return { href: targetUrl, etag: res.etag };
 }
@@ -255,7 +267,11 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
 /** Loescht einen Termin (DELETE). event.href muss gesetzt sein. */
 export async function removeEvent(event: CalEvent, creds: Credentials): Promise<boolean> {
   if (!event.href) throw new Error("Termin hat keine Server-Adresse (href).");
-  const res = await request("DELETE", event.href, creds, { ifMatch: event.etag });
+  let res = await request("DELETE", event.href, creds, { ifMatch: event.etag });
+  // ETag veraltet (412)? Dann ohne If-Match erneut loeschen (siehe pushEvent).
+  if (res.status === 412 && event.etag) {
+    res = await request("DELETE", event.href, creds);
+  }
   if (res.status >= 400 && res.status !== 404) {
     throw new Error(`Löschen fehlgeschlagen (HTTP ${res.status}).`);
   }
@@ -276,6 +292,20 @@ function allResponses(doc: any): any[] {
 
 function firstResponse(doc: any): any | null {
   return allResponses(doc)[0] ?? null;
+}
+
+/**
+ * Liest den ETag aus einem geparsten <getetag>-Knoten. fast-xml-parser kann
+ * je nach Server einen String ODER ein Objekt ({ "#text": ... }) liefern (etwa
+ * wenn Attribute vorhanden sind). Beides robust auf den reinen ETag bringen –
+ * sonst landet "[object Object]" im If-Match-Header und der Server antwortet 412.
+ */
+function readEtag(raw: any): string | undefined {
+  if (raw == null) return undefined;
+  const value = typeof raw === "object" ? raw["#text"] : raw;
+  if (value == null) return undefined;
+  const s = String(value).trim();
+  return s || undefined;
 }
 
 /** Base64-Kodierung fuer Basic Auth (UTF-8-sicher, ohne Browser-btoa). */

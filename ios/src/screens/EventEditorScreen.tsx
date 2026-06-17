@@ -241,6 +241,10 @@ export default function EventEditorScreen({ route, navigation }: Props) {
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      // iOS: schiebt den Inhalt automatisch ueber die Tastatur und scrollt das
+      // fokussierte Feld (z.B. Notizen ganz unten) in den sichtbaren Bereich.
+      automaticallyAdjustKeyboardInsets
     >
       <Text style={[styles.label, { color: theme.textMuted }]}>Titel</Text>
       <TextInput

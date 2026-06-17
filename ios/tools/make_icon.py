@@ -1,86 +1,89 @@
 #!/usr/bin/env python3
-"""Erzeugt das App-Icon (1024x1024) im Stil der Kalender-App.
+"""Erzeugt das App-Icon (1024x1024) fuer "Calzi".
 
-Motiv: blauer Verlaufshintergrund, weisse Kalenderkarte mit rotem Kopfband,
-zwei Bindungsringen und einem Monatsraster, in dem ein Tag (blau) hervorgehoben
-ist. Geometrisch aufgebaut (keine Schrift), damit es ohne Font-Abhaengigkeit
-gestochen scharf bleibt. iOS rundet die Ecken selbst -> Vollflaeche, kein Alpha.
+Motiv: blauer Verlaufshintergrund, weisse Kalenderkarte mit korallenrotem
+Kopfband und zwei Bindungsringen. Als Blickfang sitzt im Kartenkoerper eine
+korallenrote, abgerundete "Tages-Kachel" mit einem weissen "C" (fuer Calzi),
+gezeichnet als dicker Kreisbogen. Alles geometrisch aufgebaut (keine Schrift),
+damit es ohne Font-Abhaengigkeit gestochen scharf bleibt. iOS rundet die Ecken
+selbst -> Vollflaeche, kein Alpha.
+
+Aufruf:  python make_icon.py ../assets/icon.png
 """
+import sys
 from PIL import Image, ImageDraw
 
 S = 1024
-SS = 4  # Supersampling fuer glatte Kanten
+SS = 4            # Supersampling fuer glatte Kanten
 W = S * SS
+
+# --- Farben ---
+BG_TOP = (76, 155, 224)      # #4C9BE0
+BG_BOTTOM = (33, 96, 168)    # #2160A8
+CORAL = (244, 90, 74)        # #F45A4A
+CARD = (255, 255, 255)
+RING = (232, 232, 232)
+SHADOW = (18, 52, 96)
 
 img = Image.new("RGB", (W, W), (0, 0, 0))
 draw = ImageDraw.Draw(img)
 
-# --- Hintergrund: vertikaler Blauverlauf (oben heller) ---
-top = (62, 146, 204)     # #3e92cc
-bottom = (33, 86, 145)   # #215691
-for y in range(W):
-    t = y / W
-    r = int(top[0] + (bottom[0] - top[0]) * t)
-    g = int(top[1] + (bottom[1] - top[1]) * t)
-    b = int(top[2] + (bottom[2] - top[2]) * t)
-    draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+def px(v):
+    """1024er-Koordinate -> Supersampling-Pixel."""
+    return int(round(v * SS))
+
 
 def rr(box, radius, fill):
-    draw.rounded_rectangle(box, radius=radius * SS, fill=fill)
+    draw.rounded_rectangle([px(box[0]), px(box[1]), px(box[2]), px(box[3])],
+                           radius=px(radius), fill=fill)
 
-# --- weiche Schatten-Karte hinter der Kalenderkarte ---
-margin = 150 * SS
-card = [margin, 185 * SS, W - margin, W - 150 * SS]
-shadow_off = 14 * SS
-rr([card[0] + shadow_off, card[1] + shadow_off, card[2] + shadow_off, card[3] + shadow_off],
-   60, (20, 55, 95))
 
-# --- weisse Kalenderkarte ---
-rr(card, 60, (255, 255, 255))
+# --- Hintergrund: vertikaler Blauverlauf (oben heller) ---
+for y in range(W):
+    t = y / W
+    r = int(BG_TOP[0] + (BG_BOTTOM[0] - BG_TOP[0]) * t)
+    g = int(BG_TOP[1] + (BG_BOTTOM[1] - BG_TOP[1]) * t)
+    b = int(BG_TOP[2] + (BG_BOTTOM[2] - BG_TOP[2]) * t)
+    draw.line([(0, y), (W, y)], fill=(r, g, b))
 
-# --- rotes Kopfband ---
-header_h = 150 * SS
+# --- Kalenderkarte (mit weichem Schlagschatten) ---
+margin = 150
+card = [margin, 195, S - margin, S - 150]
+rr([card[0] + 14, card[1] + 16, card[2] + 14, card[3] + 16], 64, SHADOW)
+rr(card, 64, CARD)
+
+# --- korallenrotes Kopfband (oben rund, unten gerade) ---
+header_h = 132
 header = [card[0], card[1], card[2], card[1] + header_h]
-# eigenes Rounded-Top, unten gerade: erst rounded rect, dann unteren Teil fuellen
-rr(header, 60, (228, 76, 70))  # #e44c46
-draw.rectangle([header[0], header[1] + 60 * SS, header[2], header[3]], fill=(228, 76, 70))
+rr(header, 64, CORAL)
+draw.rectangle([px(header[0]), px(header[1] + 64), px(header[2]), px(header[3])], fill=CORAL)
 
-# --- zwei Bindungsringe oben ---
-ring_w, ring_h = 34 * SS, 70 * SS
-ring_y = card[1] - 28 * SS
-cx = (card[0] + card[2]) // 2
-for off in (-150 * SS, 150 * SS):
+# --- zwei Bindungsringe ueber dem Kopfband ---
+ring_w, ring_h = 36, 74
+ring_y = card[1] - 30
+cx = (card[0] + card[2]) / 2
+for off in (-150, 150):
     x = cx + off
-    rr([x - ring_w // 2, ring_y, x + ring_w // 2, ring_y + ring_h], 16, (236, 236, 236))
+    rr([x - ring_w / 2, ring_y, x + ring_w / 2, ring_y + ring_h], 18, RING)
 
-# --- Monatsraster (5 Spalten x 3 Reihen Punkte), ein Tag hervorgehoben ---
-grid_top = header[3] + 70 * SS
-grid_bottom = card[3] - 70 * SS
-grid_left = card[0] + 80 * SS
-grid_right = card[2] - 80 * SS
-cols, rows = 5, 3
-cell_w = (grid_right - grid_left) / cols
-cell_h = (grid_bottom - grid_top) / rows
-dot_r = 24 * SS
-highlight = (1, 2)  # Spalte 1, Reihe 2 (0-basiert) wird hervorgehoben
+# --- "Tages-Kachel" mit weissem "C" im Kartenkoerper ---
+body_top = header[3]
+body_bottom = card[3]
+tile = 360
+tcx = cx
+tcy = (body_top + body_bottom) / 2 + 8
+tile_box = [tcx - tile / 2, tcy - tile / 2, tcx + tile / 2, tcy + tile / 2]
+rr(tile_box, 78, CORAL)
 
-for row in range(rows):
-    for col in range(cols):
-        ccx = int(grid_left + cell_w * (col + 0.5))
-        ccy = int(grid_top + cell_h * (row + 0.5))
-        if (col, row) == highlight:
-            # ausgefuellter blauer Kreis = "heute"
-            draw.ellipse([ccx - dot_r, ccy - dot_r, ccx + dot_r, ccy + dot_r],
-                         fill=(43, 108, 176))  # #2b6cb0
-        else:
-            draw.ellipse([ccx - dot_r, ccy - dot_r, ccx + dot_r, ccy + dot_r],
-                         fill=(206, 214, 224))  # helles Grau
+# weisses "C": dicker Kreisbogen, Oeffnung nach rechts (Luecke bei 3 Uhr).
+inset = 96
+arc_box = [px(tile_box[0] + inset), px(tile_box[1] + inset),
+           px(tile_box[2] - inset), px(tile_box[3] - inset)]
+draw.arc(arc_box, start=40, end=320, fill=CARD, width=px(54))
 
 # --- herunterskalieren (Antialiasing) und speichern ---
+out_path = sys.argv[1] if len(sys.argv) > 1 else "../assets/icon.png"
 out = img.resize((S, S), Image.LANCZOS)
-import sys
-out.save(sys.argv[1])
-print("Icon gespeichert:", sys.argv[1])
-
-# Splash-Icon: nur die Karte auf transparentem Grund waere ideal, aber fuer den
-# Start reicht dasselbe Motiv. (Optional spaeter verfeinern.)
+out.save(out_path)
+print("Icon gespeichert:", out_path)

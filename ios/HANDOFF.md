@@ -4,8 +4,10 @@ Kurzkontext, damit eine neue Sitzung sofort weiterarbeiten kann. (Details stehen
 zusätzlich in der automatischen Projekt-Erinnerung und in der README.md.)
 
 ## Was es ist
-Native iOS-Kalender-App in `ios/`: **React Native + Expo SDK 54** (RN 0.81.5),
-TypeScript. Portierung der PWA aus `../pwa/`. Anbindung mailbox.org per CalDAV.
+Native iOS-Kalender-App **„Calzi"** in `ios/`: **React Native + Expo SDK 54**
+(RN 0.81.5), TypeScript. Portierung der PWA aus `../pwa/`. Anbindung mailbox.org
+per CalDAV. (App-Name `expo.name` = "Calzi"; `slug` bleibt "kalender". Name-/
+Icon-Aenderung wirkt erst nach NATIVEM Rebuild `npx expo run:ios`, nicht per `r`.)
 
 ## HARTE Einschränkung (nicht ändern!)
 Nutzer hat **MacBook Air 2020 (Intel), macOS 15, Xcode 16.4** (= Swift 6.1).
@@ -32,6 +34,19 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Zuletzt behoben (2026-06-17)
+- CalDAV-Schreiben warf HTTP **412** beim Aendern server-synchronisierter
+  Termine/Serien (ETag-Konflikt). Fix in `data/caldav.ts`: bei 412 wird der
+  PUT/DELETE EINMAL ohne `If-Match` wiederholt (Last-Write-Wins, Einzel-Nutzer);
+  ETag-Auslesen robust gemacht (`readEtag`, Objekt-`#text` + trim).
+- Erinnerungszeit aus Sync ging verloren: VALARM-`TRIGGER`-Parser in `data/ical.ts`
+  neu (vollstaendige ISO-8601-Dauer `-P1W/-P1D/-PT1H30M/...` + absolute DATE-TIME).
+- Monatsansicht: Ganztagestermine ruecken pro Tag korrekt hoch (Balken-Platz jetzt
+  **pro Spalte** via `lanesByDay`); Ganztages-Box/Top-Leiste flacher, Nav-Leiste ~20% flacher.
+  Mehrtages-Balken ebenfalls flacher (`BAR_H` 15→13, passend zur Ganztages-Box).
+- Termin-Editor: ScrollView mit `automaticallyAdjustKeyboardInsets` -> Notizfeld
+  bleibt bei offener Tastatur sichtbar.
+
 ## Wichtige Stolperfallen (gelöst, zur Erinnerung)
 - Neue `settings`-Felder: `useStore` hat ein `merge` in der persist-Config (sonst sind
   neue Felder bei altem Speicher `undefined` → NaN). Trotzdem in Consumern `?? default`.
@@ -44,4 +59,7 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
 - Mehrsprachigkeit (i18n), volle Zeitzonen-Unterstützung, iPad-Layout.
 - Background-Sync (braucht natives Modul + Rebuild).
 - Einzelne Serien-Vorkommen ÄNDERN (RECURRENCE-ID); Löschen geht schon (EXDATE).
-- App-Icon liegt in `assets/icon.png` (erzeugt mit `tools/make_icon.py`).
+- App-Icon „Calzi" (Kalenderkarte + korallenrote „C"-Kachel) liegt in
+  `assets/icon.png`, erzeugt mit `tools/make_icon.py` (Pillow im venv:
+  `tools/venv/bin/python tools/make_icon.py assets/icon.png`; `tools/venv/`
+  ist in `.gitignore`). Icon-Aenderung braucht nativen Rebuild (`expo run:ios`).

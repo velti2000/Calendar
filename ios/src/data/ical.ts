@@ -32,32 +32,24 @@ export function parseICalendar(icsText: string, calendarId: string): CalEvent[] 
   const events: CalEvent[] = [];
   let current: PropMap | null = null;
   let inAlarm = false; // VALARM-Bloecke ueberspringen (eigene DTSTART etc.)
-  let alarmMinutes: number[] = [];
+  let alarmTriggers: ParsedProp[] = [];
   let alarmTrigger: ParsedProp | null = null;
 
   for (const line of lines) {
     if (line === "BEGIN:VEVENT") {
       current = {};
-      alarmMinutes = [];
+      alarmTriggers = [];
     } else if (line === "END:VEVENT") {
-      if (current) events.push(finishEvent(current, calendarId, alarmMinutes));
+      if (current) events.push(finishEvent(current, calendarId, alarmTriggers));
       current = null;
     } else if (line === "BEGIN:VALARM") {
       inAlarm = true;
       alarmTrigger = null;
     } else if (line === "END:VALARM") {
       inAlarm = false;
-      // TRIGGER:-PT30M  ->  Erinnerung 30 Minuten vorher
-      if (alarmTrigger) {
-        const m = alarmTrigger.value.match(/^-P(?:T?)(?:(\d+)H)?(?:(\d+)M)?/i)
-          || alarmTrigger.value.match(/^-PT(\d+)H(\d+)M$/i);
-        if (m) {
-          const minutes = (parseInt(m[1] || "0", 10) * 60) + parseInt(m[2] || "0", 10);
-          if (minutes > 0 || alarmTrigger.value.toUpperCase().includes("PT0")) {
-            alarmMinutes.push(minutes);
-          }
-        }
-      }
+      // Rohen TRIGGER merken; die Umrechnung in "Minuten vorher" passiert in
+      // finishEvent (dort ist der Beginn fuer absolute Trigger bekannt).
+      if (alarmTrigger) alarmTriggers.push(alarmTrigger);
     } else if (current) {
       const parsed = parseLine(line);
       if (!parsed) continue;
@@ -109,10 +101,16 @@ function parseLine(line: string): ParsedProp | null {
 }
 
 /** Baut aus den gesammelten Properties ein fertiges CalEvent. */
-function finishEvent(props: PropMap, calendarId: string, reminders: number[]): CalEvent {
+function finishEvent(props: PropMap, calendarId: string, alarmTriggers: ParsedProp[]): CalEvent {
   const start = parseDate(props.DTSTART);
   const end = props.DTEND ? parseDate(props.DTEND) : null;
   const allDay = !!(props.DTSTART && props.DTSTART.params.VALUE === "DATE");
+
+  // VALARM-Trigger in "Minuten vor Beginn" umrechnen (robust gegen alle
+  // ueblichen Schreibweisen: -PT30M, -PT1H, -P1D, -P1W, absolute DATE-TIME …).
+  const reminders = alarmTriggers
+    .map((t) => triggerToMinutes(t, start))
+    .filter((m): m is number => m !== null);
 
   const exdates = (props.__exdates || [])
     .map((p) => parseDate(p))
@@ -156,6 +154,42 @@ function parseDate(prop: ParsedProp | undefined | null): Date | null {
     return new Date(+y, +mo - 1, +d, +h, +mi, +s);
   }
   return null;
+}
+
+/**
+ * Rechnet einen VALARM-TRIGGER in "Minuten vor Beginn" um.
+ *   - Relative Dauer (RFC 5545): "-PT30M", "-PT1H", "-PT1H30M", "-P1D",
+ *     "-P1W", "-P1DT12H", "PT0S" (= zum Termin). Negatives Vorzeichen = vorher.
+ *   - Absolut: TRIGGER;VALUE=DATE-TIME:20260616T080000Z -> Differenz zum Beginn.
+ * Liefert null, wenn der Trigger nicht gelesen werden kann.
+ */
+function triggerToMinutes(prop: ParsedProp, start: Date | null): number | null {
+  const raw = (prop.value || "").trim();
+  if (!raw) return null;
+
+  // Absoluter Zeitpunkt (DATE-TIME) -> Differenz zum Beginn in Minuten.
+  const isDateTime = prop.params.VALUE === "DATE-TIME" || /^\d{8}T\d{6}Z?$/.test(raw);
+  if (isDateTime) {
+    const at = parseDate(prop);
+    if (!at || !start) return null;
+    return Math.max(0, Math.round((start.getTime() - at.getTime()) / 60000));
+  }
+
+  // Relative ISO-8601-Dauer: [+-]P[nW][nD]T[nH][nM][nS]
+  const m = raw.toUpperCase().match(
+    /^([+-]?)P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/
+  );
+  if (!m) return null;
+  const sign = m[1];
+  const total =
+    (parseInt(m[2] || "0", 10) * 7 * 24 * 60) + // Wochen
+    (parseInt(m[3] || "0", 10) * 24 * 60) +     // Tage
+    (parseInt(m[4] || "0", 10) * 60) +          // Stunden
+    parseInt(m[5] || "0", 10) +                 // Minuten
+    Math.round(parseInt(m[6] || "0", 10) / 60); // Sekunden
+  // Erinnerungen liegen VOR dem Termin (negatives Vorzeichen). Ein Trigger
+  // NACH dem Beginn (positiv) wird als "zum Termin" (0) behandelt.
+  return sign === "-" ? total : 0;
 }
 
 /** Macht iCalendar-Escapes rueckgaengig. */

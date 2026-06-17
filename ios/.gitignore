@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Icon-Werkzeug: lokale Python-Umgebung (Pillow), nicht einchecken
+tools/venv/

@@ -34,8 +34,8 @@ type Props = NativeStackScreenProps<RootStackParamList, "Month">;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EMPTY: CalEvent[] = []; // stabile Referenz, wenn Todoist aus ist
-const BAR_H = 15;       // Hoehe eines Mehrtages-Balkens
-const BAR_GAP = 2;      // Abstand zwischen Balken-Ebenen
+const BAR_H = 13;       // Hoehe eines Mehrtages-Balkens (flach, wie Ganztages-Box)
+const BAR_GAP = 1;      // Abstand zwischen Balken-Ebenen
 const DAYNUM_H = 18;    // Hoehe der Tagesnummern-Zeile (flach)
 
 /** Tag als fortlaufende Nummer (UTC-basiert, unempfindlich gegen Sommerzeit). */
@@ -62,7 +62,7 @@ interface WeekBar {
 }
 
 /** Berechnet die Mehrtages-Balken einer Woche inkl. Ebenen-Zuteilung. */
-function computeWeekBars(week: Date[], multiDay: CalEvent[]): { bars: WeekBar[]; lanes: number } {
+function computeWeekBars(week: Date[], multiDay: CalEvent[]): { bars: WeekBar[]; lanes: number; lanesByDay: number[] } {
   const wStart = dayNumber(week[0]);
   const wEnd = wStart + 6;
 
@@ -91,7 +91,18 @@ function computeWeekBars(week: Date[], multiDay: CalEvent[]): { bars: WeekBar[];
     return { ...seg, lane };
   });
 
-  return { bars, lanes: laneEnds.length };
+  // Pro Tag (Spalte) merken, wie viele Balken-Ebenen darueber liegen. So
+  // reserviert jede Tageszelle nur so viel Platz, wie ueber DIESEM Tag wirklich
+  // ein Balken verlaeuft – eintaegige Ganztagestermine ruecken sonst unnoetig
+  // weit nach unten, nur weil irgendwo in der Woche ein Mehrtages-Balken liegt.
+  const lanesByDay = new Array(7).fill(0);
+  for (const bar of bars) {
+    for (let i = bar.startIdx; i <= bar.endIdx; i++) {
+      lanesByDay[i] = Math.max(lanesByDay[i], bar.lane + 1);
+    }
+  }
+
+  return { bars, lanes: laneEnds.length, lanesByDay };
 }
 
 export default function MonthScreen({ navigation }: Props) {
@@ -236,8 +247,7 @@ export default function MonthScreen({ navigation }: Props) {
       <GestureDetector gesture={swipe}>
         <View style={styles.gridArea}>
           {weeks.map((week) => {
-            const { bars, lanes } = computeWeekBars(week, multiDayEvents);
-            const barSpace = lanes * (BAR_H + BAR_GAP);
+            const { bars, lanesByDay } = computeWeekBars(week, multiDayEvents);
             return (
               <View key={dayKey(week[0])} style={[styles.weekRow, { borderColor: theme.border }]}>
                 {/* KW-Zahl antippen -> Wochenansicht dieser Woche */}
@@ -253,13 +263,13 @@ export default function MonthScreen({ navigation }: Props) {
                 {/* Tagesbereich: 7 Zellen + Balken-Overlay darueber */}
                 <View style={styles.daysArea}>
                   <View style={styles.daysRow}>
-                    {week.map((day) => (
+                    {week.map((day, i) => (
                       <DayCell
                         key={dayKey(day)}
                         day={day}
                         inMonth={day.getMonth() === monthDate.getMonth()}
                         events={(byDay.get(dayKey(day)) || []).filter((e) => !isMultiDayAllDay(e))}
-                        barSpace={barSpace}
+                        barSpace={lanesByDay[i] * (BAR_H + BAR_GAP)}
                         colorById={colorById}
                         fontSize={settings.eventFontSize}
                         onPress={() => navigation.navigate("Day", { dateKey: dayKey(day) })}
@@ -412,14 +422,14 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 8, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8, paddingVertical: 2, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   // Beide Seiten gleich breit, damit der Monatstitel exakt mittig bleibt.
   topBarSide: { flexDirection: "row", alignItems: "center", minWidth: 96 },
   topBarRight: { justifyContent: "flex-end" },
-  iconBtn: { padding: 8, minWidth: 44, alignItems: "center" },
-  icon: { fontSize: 22 },
-  gearIcon: { fontSize: 34, lineHeight: 36 }, // Textglyph ⚙︎ wirkt sonst winzig neben dem Emoji
+  iconBtn: { padding: 6, minWidth: 44, alignItems: "center" },
+  icon: { fontSize: 20 },
+  gearIcon: { fontSize: 27, lineHeight: 29 }, // Textglyph ⚙︎ wirkt sonst winzig neben dem Emoji
   title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "600" },
   weekdayRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   weekdayCell: { flex: 1, alignItems: "center", paddingVertical: 4 },
@@ -441,16 +451,16 @@ const styles = StyleSheet.create({
     marginBottom: 1, marginLeft: 1,
   },
   dayNum: { fontSize: 12, fontWeight: "600" },
-  allDayChip: { borderRadius: 3, paddingHorizontal: 2, paddingVertical: 1, marginBottom: 1 },
+  allDayChip: { borderRadius: 3, paddingHorizontal: 2, paddingVertical: 0, marginBottom: 1 },
   timedText: { marginBottom: 1 },
   chipText: { flexShrink: 1 },
   moreText: { marginTop: 1 },
   navBar: {
     flexDirection: "row", justifyContent: "space-around", alignItems: "center",
-    paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 4, borderTopWidth: StyleSheet.hairlineWidth,
   },
-  navBtn: { paddingHorizontal: 18, paddingVertical: 4 },
-  navBtnText: { fontSize: 24, fontWeight: "600" },
+  navBtn: { paddingHorizontal: 18, paddingVertical: 2 },
+  navBtnText: { fontSize: 20, fontWeight: "600" },
   modalOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center", justifyContent: "center", padding: 24,
