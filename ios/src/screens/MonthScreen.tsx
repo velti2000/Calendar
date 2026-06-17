@@ -418,49 +418,75 @@ function DayCell({ day, inMonth, events, barSpace, colorById, fontSize, onPress 
   );
 }
 
+/*
+ * STYLES – Monatsansicht. Die wichtigsten Stellschrauben fuer die Optik.
+ * Zusaetzlich oben die Konstanten BAR_H/BAR_GAP/DAYNUM_H (Mehrtages-Balken) und
+ * in den Einstellungen die "Schriftgröße Termine" (settings.eventFontSize).
+ */
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  /* ----- OBERE LEISTE (Zahnrad · Monat · Sync/Lupe) ----- */
+  // Hoehe der oberen Leiste hier ueber `paddingVertical` einstellen (kleiner = flacher).
   topBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: 8, paddingVertical: 2, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  // Beide Seiten gleich breit, damit der Monatstitel exakt mittig bleibt.
+  // Linke/rechte Seite gleich breit (minWidth), damit der Monatstitel exakt mittig bleibt.
   topBarSide: { flexDirection: "row", alignItems: "center", minWidth: 96 },
   topBarRight: { justifyContent: "flex-end" },
+  // Tippflaeche der Icon-Knoepfe. `padding` beeinflusst auch die Leistenhoehe mit.
   iconBtn: { padding: 6, minWidth: 44, alignItems: "center" },
-  icon: { fontSize: 20 },
-  gearIcon: { fontSize: 27, lineHeight: 29 }, // Textglyph ⚙︎ wirkt sonst winzig neben dem Emoji
-  title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "600" },
+  icon: { fontSize: 20 },                       // Groesse von Sync (↻) und Lupe (🔍)
+  gearIcon: { fontSize: 27, lineHeight: 29 },   // Groesse Zahnrad ⚙︎ (Glyph wirkt sonst winzig)
+  title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "600" }, // Monat/Jahr mittig
+
+  /* ----- WOCHENTAGS-KOPF (Mo Di Mi …) ----- */
   weekdayRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   weekdayCell: { flex: 1, alignItems: "center", paddingVertical: 4 },
   weekdayText: { fontSize: 12, fontWeight: "600" },
-  gridArea: { flex: 1 },
-  weekRow: { flex: 1, flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
+
+  /* ----- RASTER (Wochenzeilen + Tageszellen) ----- */
+  gridArea: { flex: 1 },                        // nimmt die gesamte Resthoehe ein
+  weekRow: { flex: 1, flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth }, // eine Wochenzeile
   daysArea: { flex: 1 },
   daysRow: { flex: 1, flexDirection: "row" },
-  // KW vertikal mittig, Zahlen gleich gross wie die Tageszahlen.
+  // KW-Spalte links: Breite ueber `width`. Zahlen vertikal mittig.
   kwCell: { width: 22, alignItems: "center", justifyContent: "center" },
   kwText: { fontSize: 12, fontWeight: "600" },
+  // Einzelne Tageszelle. `overflow:hidden` kappt zu viele Eintraege; kein seitliches
+  // Padding -> Termine sitzen buendig links.
   dayCell: {
     flex: 1, borderLeftWidth: StyleSheet.hairlineWidth,
-    paddingTop: 1, overflow: "hidden", // kein seitliches Padding -> Eintraege buendig links
+    paddingTop: 1, overflow: "hidden",
   },
+  // Das kleine Kaestchen um die Tageszahl (heute farbig hinterlegt).
   dayNumWrap: {
     alignSelf: "flex-start", minWidth: 17, height: 16, borderRadius: 8,
     alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
     marginBottom: 1, marginLeft: 1,
   },
-  dayNum: { fontSize: 12, fontWeight: "600" },
+  dayNum: { fontSize: 12, fontWeight: "600" }, // Groesse der Tageszahl
+
+  /* ----- EINTRAEGE IN DER TAGESZELLE ----- */
+  // EINTAEGIGER Ganztagestermin (farbig hinterlegte Box). `paddingVertical`
+  // bestimmt die Hoehe der Box (0 = sehr flach). Mehrtages-Balken: siehe BAR_H oben.
   allDayChip: { borderRadius: 3, paddingHorizontal: 2, paddingVertical: 0, marginBottom: 1 },
-  timedText: { marginBottom: 1 },
-  chipText: { flexShrink: 1 },
-  moreText: { marginTop: 1 },
+  timedText: { marginBottom: 1 },               // Abstand unter einem Zeit-Termin (Text)
+  chipText: { flexShrink: 1 },                  // Text darf schrumpfen statt zu ueberlaufen
+  moreText: { marginTop: 1 },                   // "+N weitere"-Hinweis
+
+  /* ----- UNTERE NAVIGATIONSLEISTE (📅 ‹ Heute ›) ----- */
+  // Hoehe der unteren Leiste ueber `paddingVertical` (navBar) + `paddingVertical`
+  // (navBtn) + `fontSize` (navBtnText) einstellen.
   navBar: {
     flexDirection: "row", justifyContent: "space-around", alignItems: "center",
     paddingVertical: 4, borderTopWidth: StyleSheet.hairlineWidth,
   },
   navBtn: { paddingHorizontal: 18, paddingVertical: 2 },
-  navBtnText: { fontSize: 20, fontWeight: "600" },
+  navBtnText: { fontSize: 20, fontWeight: "600" }, // Groesse der Pfeile ‹ ›
+
+  /* ----- "ZU DATUM SPRINGEN"-MODAL ----- */
   modalOverlay: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center", justifyContent: "center", padding: 24,

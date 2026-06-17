@@ -34,6 +34,26 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Zuletzt geändert (2026-06-17, Teil 2)
+- **412 weiter eingegrenzt**: 412 kann bei CalDAV auch eine INHALTS-Vorbedingung
+  sein (nicht nur ETag). Häufigste Ursache gefunden: **EXDATE ohne RRULE** ist
+  ungültiges iCalendar → `data/ical.ts` schreibt EXDATE jetzt nur noch mit RRULE;
+  der Editor leert `exdates` beim Umwandeln Serie→Einzeltermin. Zusätzlich zeigt
+  `data/caldav.ts` jetzt den **Server-Antworttext** in der Fehlermeldung (zum
+  Erkennen der genauen 412-Ursache).
+- **WICHTIG – Icon/Name aktualisieren**: Änderungen an `app.json` (Name „Calzi",
+  Icon) landen NICHT automatisch im nativen Xcode-Projekt (`ios/ios/`). Nötig:
+  `npx expo prebuild --clean` (regeneriert Info.plist + Icons aus app.json),
+  danach `npx expo run:ios` bzw. Xcode-Build/AltStore. Ohne Prebuild bleibt die
+  App „Kalender". (Bundle-ID net.gmx.velti2000.kalender bleibt.)
+- **Standardkalender**: `settings.defaultCalendarId` (neu). In Einstellungen →
+  KALENDER per ★ markierbar; im „Neuer Termin"-Dialog ist dieser Kalender
+  vorausgewählt (EventEditor `defaultCalId`).
+- **„Speichern"** steht jetzt oben rechts in der Editor-Kopfleiste (`headerRight`
+  via `saveRef`, vermeidet veraltete Closure); der untere Speichern-Button entfiel.
+- **Styles dokumentiert**: MonthScreen/DayScreen/EventEditor-StyleSheets sind
+  durchkommentiert (welcher Eintrag steuert was) – für eigenes UI-Finetuning.
+
 ## Zuletzt behoben (2026-06-17)
 - CalDAV-Schreiben warf HTTP **412** beim Aendern server-synchronisierter
   Termine/Serien (ETag-Konflikt). Fix in `data/caldav.ts`: bei 412 wird der

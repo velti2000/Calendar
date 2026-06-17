@@ -220,7 +220,11 @@ export function buildICalendar(event: CalEvent): string {
 
   // Ausgenommene Vorkommen einer Serie (EXDATE) mitschreiben, damit der
   // Server (und andere Apps) sie ebenfalls auslassen.
-  for (const key of event.exdates || []) {
+  // WICHTIG: NUR wenn es auch eine RRULE gibt – ein EXDATE ohne RRULE ist
+  // ungueltiges iCalendar und wird vom Server mit HTTP 412
+  // (valid-calendar-data) abgelehnt. Das passiert z.B., wenn eine Serie zu
+  // einem Einzeltermin geaendert wird, aber alte EXDATEs am Termin haengen.
+  if (event.rrule) for (const key of event.exdates || []) {
     const [y, m, d] = key.split("-").map(Number);
     if (!y || !m || !d) continue;
     if (event.allDay) {

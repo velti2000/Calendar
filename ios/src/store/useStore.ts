@@ -38,6 +38,7 @@ function defaultSettings(): Settings {
   return {
     theme: "auto",
     navPosition: "bottom",
+    defaultCalendarId: "",   // kein fester Standardkalender -> erster sichtbarer
     eventFontSize: 9,
     dayStartHour: 6,       // Tag/Woche scrollen beim Oeffnen auf 6:00 Uhr
     // Drei Zeitphasen, anfangs alle AUS – Beispielwerte als Startpunkt.

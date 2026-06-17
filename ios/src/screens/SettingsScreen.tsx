@@ -338,15 +338,36 @@ export default function SettingsScreen() {
       {/* ---------- Kalender ---------- */}
       <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>KALENDER</Text>
       <View style={section}>
-        {calendars.map((cal) => (
-          <View key={cal.id} style={styles.switchRow}>
-            <View style={styles.calName}>
-              <View style={[styles.dot, { backgroundColor: cal.color }]} />
-              <Text style={[styles.rowLabel, { color: theme.text }]}>{cal.name}</Text>
+        {calendars.map((cal) => {
+          // Ist dieser Kalender der Standard fuer neue Termine?
+          const isDefault = settings.defaultCalendarId === cal.id;
+          return (
+            <View key={cal.id} style={styles.switchRow}>
+              <View style={styles.calName}>
+                <View style={[styles.dot, { backgroundColor: cal.color }]} />
+                <Text style={[styles.rowLabel, { color: theme.text }]} numberOfLines={1}>{cal.name}</Text>
+              </View>
+              <View style={styles.calRight}>
+                {/* Stern = Standardkalender. Nochmal tippen hebt die Auswahl auf. */}
+                <Pressable
+                  onPress={() => updateSettings({ defaultCalendarId: isDefault ? "" : cal.id })}
+                  hitSlop={8}
+                  style={styles.starBtn}
+                >
+                  <Text style={{ fontSize: 20, color: isDefault ? theme.accent : theme.textMuted }}>
+                    {isDefault ? "★" : "☆"}
+                  </Text>
+                </Pressable>
+                <Switch value={cal.visible} onValueChange={() => toggleCalendarVisible(cal.id)} />
+              </View>
             </View>
-            <Switch value={cal.visible} onValueChange={() => toggleCalendarVisible(cal.id)} />
-          </View>
-        ))}
+          );
+        })}
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          ★ markiert den Standardkalender: Bei einem neuen Termin ist dieser
+          Kalender zuerst ausgewählt. Der Schalter rechts blendet die Termine
+          eines Kalenders ein/aus.
+        </Text>
       </View>
 
       {/* ---------- Benachrichtigungen ---------- */}
@@ -579,7 +600,11 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   colorCheck: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  calName: { flexDirection: "row", alignItems: "center", gap: 8 },
+  // Kalender-/Phasen-Name links (nimmt den Platz bis zu den Schaltern ein).
+  calName: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  // Rechte Seite einer Kalenderzeile: Standard-Stern + Sichtbarkeits-Schalter.
+  calRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  starBtn: { paddingHorizontal: 2 },
   dot: { width: 12, height: 12, borderRadius: 6 },
   segmentRow: { flexDirection: "row", gap: 8, marginTop: 8 },
   segment: { borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 },

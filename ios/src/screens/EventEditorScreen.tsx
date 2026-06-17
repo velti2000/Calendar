@@ -9,7 +9,7 @@
  * Nach jeder Aenderung werden die lokalen Erinnerungen neu geplant.
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View, Text, TextInput, Switch, Pressable, ScrollView, Alert, StyleSheet,
 } from "react-native";
@@ -72,8 +72,17 @@ export default function EventEditorScreen({ route, navigation }: Props) {
   const defaultStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour, 0);
   const defaultEnd = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour + 1, 0);
 
+  // Vorauswahl der Kategorie: bestehender Termin -> sein Kalender; sonst der in
+  // den Einstellungen markierte Standardkalender (falls sichtbar); sonst der
+  // erste sichtbare Kalender.
+  const defaultCalId = categoryOptions.some((c) => c.id === settings.defaultCalendarId)
+    ? settings.defaultCalendarId
+    : undefined;
+
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [calendarId, setCalendarId] = useState(existing?.calendarId ?? categoryOptions[0]?.id ?? "");
+  const [calendarId, setCalendarId] = useState(
+    existing?.calendarId ?? defaultCalId ?? categoryOptions[0]?.id ?? ""
+  );
   const [allDay, setAllDay] = useState(existing?.allDay ?? false);
   const [start, setStart] = useState(existing ? new Date(existing.start) : defaultStart);
   const [end, setEnd] = useState(existing ? new Date(existing.end) : defaultEnd);
@@ -87,9 +96,21 @@ export default function EventEditorScreen({ route, navigation }: Props) {
   const [location, setLocation] = useState(existing?.location ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
 
+  // Damit der Header-Button "Speichern" immer die AKTUELLEN Eingaben sieht
+  // (nicht eine veraltete Closure), rufen wir save() ueber eine Ref auf.
+  const saveRef = useRef<() => void>(() => {});
+
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: existing ? "Termin bearbeiten" : "Neuer Termin" });
-  }, [navigation, existing]);
+    navigation.setOptions({
+      title: existing ? "Termin bearbeiten" : "Neuer Termin",
+      // "Speichern" oben rechts in der Navigationsleiste, neben dem Titel.
+      headerRight: () => (
+        <Pressable onPress={() => saveRef.current()} hitSlop={10} style={styles.headerSaveBtn}>
+          <Text style={[styles.headerSaveText, { color: theme.accent }]}>Speichern</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, existing, theme.accent]);
 
   const save = async () => {
     // Bei Ganztags gilt die iCal-Konvention: Ende = Folgetag 00:00.
@@ -115,6 +136,10 @@ export default function EventEditorScreen({ route, navigation }: Props) {
       notes: notes.trim(),
       reminders: reminder >= 0 ? [reminder] : [],
       rrule: rrule || null,
+      // Ohne Serie (RRULE) duerfen KEINE EXDATEs uebrig bleiben – sonst ist das
+      // iCalendar ungueltig und der Server lehnt mit HTTP 412 ab. Beim Umwandeln
+      // einer Serie in einen Einzeltermin werden die Ausnahmen also entfernt.
+      exdates: rrule ? (existing?.exdates ?? []) : [],
     };
 
     // 1) Lokal speichern (sofort sichtbar).
@@ -145,6 +170,9 @@ export default function EventEditorScreen({ route, navigation }: Props) {
       );
     }
   };
+
+  // Aktuelle save-Funktion in der Ref ablegen (fuer den Header-Button).
+  saveRef.current = save;
 
   /** Erinnerungen nach einer Aenderung neu planen. */
   const refreshReminders = () => {
@@ -360,10 +388,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
         multiline
       />
 
-      <Pressable style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={save}>
-        <Text style={styles.saveBtnText}>Speichern</Text>
-      </Pressable>
-
+      {/* "Speichern" steht oben rechts in der Kopfleiste (siehe headerRight). */}
       {existing && (
         <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
           <Text style={[styles.deleteBtnText, { color: theme.danger }]}>Termin löschen</Text>
@@ -373,28 +398,41 @@ export default function EventEditorScreen({ route, navigation }: Props) {
   );
 }
 
+/*
+ * STYLES – Termin-Editor. Hier kann die Optik einzelner Bausteine feinjustiert
+ * werden. Kurzanleitung, was welcher Eintrag steuert:
+ */
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 48 },
+  // Aussenabstand des gesamten Formulars. `paddingBottom` gibt unten Luft, damit
+  // das Notizfeld bei offener Tastatur ueber sie gescrollt werden kann.
+  container: { padding: 16, paddingBottom: 80 },
+  // Feld-Ueberschriften ("Titel", "Beginn", ...): Groesse/Abstand oben.
   label: { fontSize: 13, fontWeight: "600", marginTop: 14, marginBottom: 6 },
+  // Textfelder (Titel, Ort, Notizen): Rahmen, Rundung, Innenabstand, Schrift.
   input: {
     borderWidth: StyleSheet.hairlineWidth, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 16,
   },
+  // Notizfeld zusaetzlich: Mindesthoehe + Text beginnt oben (mehrzeilig).
   notesInput: { minHeight: 80, textAlignVertical: "top" },
+  // Zeile mit "Chips" (Kategorie-, Erinnerungs-Auswahl): umbricht bei Platzmangel.
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  // Ein einzelner Chip (Pille): Rahmen, Rundung, Innenabstand.
   chip: {
     borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5,
   },
+  // Bereich der "Frei…"-Erinnerung mit Stunden-/Minuten-Wählrad.
   customReminderRow: { marginTop: 8, alignItems: "center" },
   customReminderLabel: { fontSize: 14, fontWeight: "500", marginBottom: -4 },
+  // Zeile "Ganztägig" mit Schalter rechts.
   switchRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16,
   },
   switchLabel: { fontSize: 16 },
-  saveBtn: {
-    marginTop: 28, borderRadius: 10, paddingVertical: 14, alignItems: "center",
-  },
-  saveBtnText: { color: "#fff", fontSize: 17, fontWeight: "600" },
-  deleteBtn: { marginTop: 16, alignItems: "center", paddingVertical: 10 },
+  // "Speichern" oben rechts in der Navigationsleiste (Kopf).
+  headerSaveBtn: { paddingHorizontal: 4, paddingVertical: 4 },
+  headerSaveText: { fontSize: 17, fontWeight: "600" },
+  // "Termin löschen" unten (nur beim Bearbeiten). Farbe kommt aus theme.danger.
+  deleteBtn: { marginTop: 24, alignItems: "center", paddingVertical: 10 },
   deleteBtnText: { fontSize: 16 },
 });

@@ -55,6 +55,9 @@ export interface TimeBand {
 export interface Settings {
   theme: "auto" | "light" | "dark";
   navPosition: "bottom" | "top";   // Position der Navigationsleiste
+  // Standardkalender (Kategorie), der im "Neuer Termin"-Dialog vorausgewaehlt
+  // ist. Leer/unbekannt -> es wird der erste sichtbare Kalender genommen.
+  defaultCalendarId?: string;
   eventFontSize: number;           // Schriftgroesse der Termine (Monatsansicht)
   dayStartHour: number;            // Stunde (0–23), zu der Tag/Woche beim Oeffnen scrollt
   timeBands: TimeBand[];           // farbige Zeitphasen (nur Tag/Woche), genau 3

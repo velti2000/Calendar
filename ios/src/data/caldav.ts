@@ -253,6 +253,9 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
   // Server-Stand (z.B. nach einem fremden Sync oder weil ein PUT zuvor keinen
   // neuen ETag zurueckgab). Fuer diesen persoenlichen Einzel-Kalender gilt
   // "meine Aenderung gewinnt": einmal ohne If-Match erneut schreiben.
+  // ACHTUNG: 412 kann bei CalDAV AUCH eine Inhalts-Vorbedingung sein
+  // (z.B. valid-calendar-data) – die steht dann im Antwort-Body und wird unten
+  // mit ausgegeben, damit man die Ursache sieht.
   if (res.status === 412 && event.etag) {
     res = await request("PUT", targetUrl, creds, {
       contentType: "text/calendar; charset=utf-8",
@@ -260,7 +263,10 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
     });
   }
 
-  if (res.status >= 400) throw new Error(`Speichern fehlgeschlagen (HTTP ${res.status}).`);
+  if (res.status >= 400) {
+    const detail = (res.text || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`Speichern fehlgeschlagen (HTTP ${res.status})${detail ? ": " + detail : ""}`);
+  }
   return { href: targetUrl, etag: res.etag };
 }
 

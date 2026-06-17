@@ -245,39 +245,52 @@ export default function DayScreen({ route, navigation }: Props) {
   );
 }
 
+/*
+ * STYLES – Tagesansicht (Stundenraster). Die Stunden-Hoehe selbst steckt in der
+ * Konstante HOUR_H oben; GUTTER = Breite der Uhrzeit-Spalte links.
+ */
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
+  /* ----- GANZTAGES-REIHE OBEN ----- */
+  // Hoehe ueber `paddingVertical`. Erscheint nur, wenn es Ganztagestermine gibt.
   allDayRow: {
     flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: 6, alignItems: "flex-start",
   },
-  allDayGutter: { width: GUTTER, paddingTop: 3, alignItems: "center" },
+  allDayGutter: { width: GUTTER, paddingTop: 3, alignItems: "center" }, // linke Spalte "ganztägig"
   allDayLabel: { fontSize: 9 },
   allDayChips: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4, paddingRight: 8 },
+  // Einzelner Ganztages-Chip: `paddingVertical` = Hoehe, `borderRadius` = Rundung.
   allDayChip: { borderRadius: 5, paddingHorizontal: 8, paddingVertical: 4 },
   allDayChipText: { color: "#fff", fontSize: 13, fontWeight: "500" },
 
+  /* ----- STUNDENRASTER ----- */
+  // Eine Stundenzeile. Die HOEHE kommt aus HOUR_H (inline gesetzt), nicht hier.
   hourRow: {
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
   },
   hourGutter: { width: GUTTER, alignItems: "center" },
-  hourLabel: { fontSize: 10, marginTop: -6 }, // Label sitzt auf der Stundenlinie
+  hourLabel: { fontSize: 10, marginTop: -6 }, // Uhrzeit-Label sitzt genau auf der Stundenlinie
 
-  bandsLayer: { position: "absolute", top: 0, right: 0, bottom: 0 },
-  eventLayer: { position: "absolute", top: 0, right: 4, bottom: 0 },
+  /* ----- TERMIN-BLOECKE + ZEITPHASEN ----- */
+  bandsLayer: { position: "absolute", top: 0, right: 0, bottom: 0 }, // farbige Zeitphasen (hinten)
+  eventLayer: { position: "absolute", top: 0, right: 4, bottom: 0 }, // Ebene der Termin-Bloecke
+  // Ein Termin-Block: Rundung, farbiger Balken links (borderLeftWidth), Innenabstand.
   eventBlock: {
     position: "absolute", borderRadius: 6, borderLeftWidth: 3,
     paddingHorizontal: 5, paddingVertical: 2, overflow: "hidden",
   },
-  eventTitle: { fontSize: 12, fontWeight: "600" },
-  eventTime: { fontSize: 10, marginTop: 1 },
+  eventTitle: { fontSize: 12, fontWeight: "600" }, // Titel im Block
+  eventTime: { fontSize: 10, marginTop: 1 },       // Uhrzeit-/Ortzeile im Block
 
+  /* ----- JETZT-LINIE (nur heute) ----- */
   nowLine: { position: "absolute", left: 0, right: 0, height: 2, flexDirection: "row", alignItems: "center" },
   nowDot: { width: 8, height: 8, borderRadius: 4, marginLeft: -4 },
   nowBar: { flex: 1, height: 2 },
 
+  /* ----- "+"-KNOPF (neuer Termin), unten rechts ----- */
   fab: {
     position: "absolute", right: 20, bottom: 32, width: 56, height: 56,
     borderRadius: 28, alignItems: "center", justifyContent: "center",
