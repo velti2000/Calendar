@@ -34,13 +34,24 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## 412-WURZEL GEFUNDEN (2026-06-17, Teil 3)
+mailbox.org läuft auf **Open-Xchange (OX)**, NICHT SabreDAV. Server-Antwort bei
+412 war `CAL-4121: a newer version already exists` = **Versionskonflikt**. OX
+vergibt ETags teils neu, sodass der beim Sync gespeicherte ETag schon veraltet
+ist – und ein PUT/DELETE GANZ OHNE If-Match lehnt OX ebenfalls ab.
+- **Fix in `data/caldav.ts`**: bei 412 holt `fetchCurrentEtag()` den AKTUELLEN
+  ETag der Ressource per PROPFIND (Tiefe 0); PUT/DELETE wird damit als frisches
+  If-Match wiederholt ("meine Änderung gewinnt"). Ersetzt die alte
+  "ohne If-Match wiederholen"-Logik (funktioniert bei OX NICHT).
+- (Die EXDATE-ohne-RRULE-Korrektur unten bleibt sinnvoll, war aber nicht die
+  Ursache für CAL-4121.)
+
 ## Zuletzt geändert (2026-06-17, Teil 2)
-- **412 weiter eingegrenzt**: 412 kann bei CalDAV auch eine INHALTS-Vorbedingung
-  sein (nicht nur ETag). Häufigste Ursache gefunden: **EXDATE ohne RRULE** ist
-  ungültiges iCalendar → `data/ical.ts` schreibt EXDATE jetzt nur noch mit RRULE;
-  der Editor leert `exdates` beim Umwandeln Serie→Einzeltermin. Zusätzlich zeigt
-  `data/caldav.ts` jetzt den **Server-Antworttext** in der Fehlermeldung (zum
-  Erkennen der genauen 412-Ursache).
+- **412 (erste Annahme)**: 412 kann bei CalDAV auch eine INHALTS-Vorbedingung
+  sein. **EXDATE ohne RRULE** ist ungültiges iCalendar → `data/ical.ts` schreibt
+  EXDATE jetzt nur noch mit RRULE; der Editor leert `exdates` beim Umwandeln
+  Serie→Einzeltermin. `data/caldav.ts` zeigt den **Server-Antworttext** in der
+  Fehlermeldung (so wurde CAL-4121 ueberhaupt sichtbar).
 - **WICHTIG – Icon/Name aktualisieren**: Änderungen an `app.json` (Name „Calzi",
   Icon) landen NICHT automatisch im nativen Xcode-Projekt (`ios/ios/`). Nötig:
   `npx expo prebuild --clean` (regeneriert Info.plist + Icons aus app.json),

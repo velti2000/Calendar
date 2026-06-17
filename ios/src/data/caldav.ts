@@ -249,16 +249,19 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
     body: ics,
   });
 
-  // HTTP 412 (Precondition Failed) = der gespeicherte ETag passt nicht mehr zum
-  // Server-Stand (z.B. nach einem fremden Sync oder weil ein PUT zuvor keinen
-  // neuen ETag zurueckgab). Fuer diesen persoenlichen Einzel-Kalender gilt
-  // "meine Aenderung gewinnt": einmal ohne If-Match erneut schreiben.
-  // ACHTUNG: 412 kann bei CalDAV AUCH eine Inhalts-Vorbedingung sein
-  // (z.B. valid-calendar-data) – die steht dann im Antwort-Body und wird unten
-  // mit ausgegeben, damit man die Ursache sieht.
-  if (res.status === 412 && event.etag) {
+  // HTTP 412 = VERSIONSKONFLIKT. mailbox.org laeuft auf Open-Xchange (OX) und
+  // meldet hier "CAL-4121: a newer version already exists": unser gespeicherter
+  // ETag passt nicht mehr zur aktuellen Server-Version (OX vergibt ETags teils
+  // neu, auch ohne fremde Aenderung). Ein PUT GANZ OHNE If-Match lehnt OX
+  // ebenfalls ab – deshalb holen wir den AKTUELLEN ETag der Ressource frisch
+  // und schreiben EINMAL mit diesem If-Match erneut ("meine Aenderung gewinnt").
+  // Hinweis: 412 kann theoretisch auch eine Inhalts-Vorbedingung sein
+  // (z.B. valid-calendar-data) – die steht dann im Antwort-Body (s. throw unten).
+  if (res.status === 412 && event.href) {
+    const freshEtag = await fetchCurrentEtag(targetUrl, creds);
     res = await request("PUT", targetUrl, creds, {
       contentType: "text/calendar; charset=utf-8",
+      ifMatch: freshEtag, // undefined -> ohne If-Match (allerletzter Versuch)
       body: ics,
     });
   }
@@ -274,9 +277,11 @@ export async function pushEvent(calendarUrl: string, event: CalEvent, creds: Cre
 export async function removeEvent(event: CalEvent, creds: Credentials): Promise<boolean> {
   if (!event.href) throw new Error("Termin hat keine Server-Adresse (href).");
   let res = await request("DELETE", event.href, creds, { ifMatch: event.etag });
-  // ETag veraltet (412)? Dann ohne If-Match erneut loeschen (siehe pushEvent).
-  if (res.status === 412 && event.etag) {
-    res = await request("DELETE", event.href, creds);
+  // Versionskonflikt (412)? Aktuellen ETag frisch holen und erneut loeschen
+  // (gleiche OX-Logik wie in pushEvent).
+  if (res.status === 412) {
+    const freshEtag = await fetchCurrentEtag(event.href, creds);
+    res = await request("DELETE", event.href, creds, { ifMatch: freshEtag });
   }
   if (res.status >= 400 && res.status !== 404) {
     throw new Error(`Löschen fehlgeschlagen (HTTP ${res.status}).`);
@@ -298,6 +303,24 @@ function allResponses(doc: any): any[] {
 
 function firstResponse(doc: any): any | null {
   return allResponses(doc)[0] ?? null;
+}
+
+/**
+ * Holt den AKTUELLEN ETag einer einzelnen Ressource per PROPFIND (Tiefe 0).
+ * Wird zur Konfliktloesung gebraucht (HTTP 412 bei OX/mailbox.org): mit diesem
+ * frischen ETag passt das anschliessende If-Match wieder zur Server-Version.
+ * Liefert undefined, wenn nichts ermittelbar ist.
+ */
+async function fetchCurrentEtag(targetUrl: string, creds: Credentials): Promise<string | undefined> {
+  const body = `<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:"><d:prop><d:getetag/></d:prop></d:propfind>`;
+  const res = await request("PROPFIND", targetUrl, creds, { depth: 0, contentType: XML_CT, body });
+  if (res.status >= 400) return undefined;
+  const resp = firstResponse(xml.parse(res.text));
+  if (!resp) return undefined;
+  const propstats = Array.isArray(resp.propstat) ? resp.propstat : [resp.propstat];
+  const prop = propstats.find((p: any) => p?.prop?.getetag != null)?.prop ?? propstats[0]?.prop;
+  return readEtag(prop?.getetag);
 }
 
 /**
