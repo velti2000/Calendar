@@ -105,6 +105,9 @@ function finishEvent(props: PropMap, calendarId: string, alarmTriggers: ParsedPr
   const start = parseDate(props.DTSTART);
   const end = props.DTEND ? parseDate(props.DTEND) : null;
   const allDay = !!(props.DTSTART && props.DTSTART.params.VALUE === "DATE");
+  // TZID des Beginns merken (nur bei Zeit-Terminen relevant) – wird beim
+  // Zurueckschreiben fuer DTSTART/DTEND/EXDATE beibehalten (siehe types.ts).
+  const tzid = !allDay ? props.DTSTART?.params.TZID : undefined;
 
   // VALARM-Trigger in "Minuten vor Beginn" umrechnen (robust gegen alle
   // ueblichen Schreibweisen: -PT30M, -PT1H, -P1D, -P1W, absolute DATE-TIME …).
@@ -132,6 +135,7 @@ function finishEvent(props: PropMap, calendarId: string, alarmTriggers: ParsedPr
     // SEQUENCE (Revisionsnummer) merken – wird beim Zurueckschreiben gebraucht
     // (Open-Xchange-Konfliktpruefung, siehe types.ts).
     sequence: props.SEQUENCE ? (parseInt(props.SEQUENCE.value, 10) || 0) : 0,
+    tzid: tzid || undefined,
   };
 }
 
@@ -219,8 +223,8 @@ export function buildICalendar(event: CalEvent): string {
     // (siehe pushEventToServer in store/useStore.ts).
     `SEQUENCE:${event.sequence ?? 0}`,
     `LAST-MODIFIED:${formatUtc(new Date())}`,
-    formatDateProp("DTSTART", event.start, event.allDay),
-    formatDateProp("DTEND", event.end, event.allDay),
+    formatDateProp("DTSTART", event.start, event.allDay, event.tzid),
+    formatDateProp("DTEND", event.end, event.allDay, event.tzid),
     `SUMMARY:${escapeText(event.title)}`,
   ];
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
@@ -236,12 +240,22 @@ export function buildICalendar(event: CalEvent): string {
   if (event.rrule) for (const key of event.exdates || []) {
     const [y, m, d] = key.split("-").map(Number);
     if (!y || !m || !d) continue;
+    const p = (n: number) => String(n).padStart(2, "0");
     if (event.allDay) {
-      lines.push(`EXDATE;VALUE=DATE:${String(y)}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`);
+      lines.push(`EXDATE;VALUE=DATE:${y}${p(m)}${p(d)}`);
     } else {
-      // Uhrzeit des Serienbeginns verwenden (gleicher Typ wie DTSTART = UTC).
+      // Das EXDATE muss EXAKT der Recurrence-ID des Vorkommens entsprechen,
+      // sonst lehnt Open-Xchange mit CAL-4061 ab. Vorkommen haben dieselbe
+      // lokale Uhrzeit wie der Serienbeginn, nur an einem anderen Tag.
       const base = new Date(event.start);
-      lines.push(`EXDATE:${formatUtc(new Date(y, m - 1, d, base.getHours(), base.getMinutes(), 0))}`);
+      const time = `T${p(base.getHours())}${p(base.getMinutes())}${p(base.getSeconds())}`;
+      if (event.tzid) {
+        // Server-Serie mit Zeitzone: gleiche TZID + lokale Wandzeit wie DTSTART.
+        lines.push(`EXDATE;TZID=${event.tzid}:${y}${p(m)}${p(d)}${time}`);
+      } else {
+        // UTC-Serie (z.B. von Calzi erstellt): in UTC ausschreiben.
+        lines.push(`EXDATE:${formatUtc(new Date(y, m - 1, d, base.getHours(), base.getMinutes(), base.getSeconds()))}`);
+      }
     }
   }
 
@@ -254,7 +268,7 @@ export function buildICalendar(event: CalEvent): string {
   return lines.join("\r\n");
 }
 
-function formatDateProp(name: string, iso: string, allDay: boolean): string {
+function formatDateProp(name: string, iso: string, allDay: boolean, tzid?: string): string {
   const d = new Date(iso);
   if (allDay) {
     const y = d.getFullYear();
@@ -262,7 +276,16 @@ function formatDateProp(name: string, iso: string, allDay: boolean): string {
     const day = String(d.getDate()).padStart(2, "0");
     return `${name};VALUE=DATE:${y}${m}${day}`;
   }
+  // Mit TZID (Server-Termin): lokale Wandzeit + Zeitzone beibehalten, damit
+  // Open-Xchange Serien-Vorkommen wiedererkennt. Ohne TZID: UTC ("…Z").
+  if (tzid) return `${name};TZID=${tzid}:${formatLocalNaive(d)}`;
   return `${name}:${formatUtc(d)}`;
+}
+
+/** Formatiert ein Date als "lokale" iCal-Zeit ohne Zonenangabe: "YYYYMMDDTHHMMSS". */
+function formatLocalNaive(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}T${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
 function formatUtc(d: Date): string {

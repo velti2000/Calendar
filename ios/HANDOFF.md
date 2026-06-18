@@ -34,6 +34,19 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Serien-Vorkommen löschen: TZID/EXDATE (2026-06-18, Teil 3)
+Einzelnes Vorkommen aus einer **vom Server geladenen** Serie löschen -> HTTP 400
+`CAL-4061` ("targeted occurrence is not part of the appointment series"). Bei
+Calzi-eigenen Serien ging es. Ursache: Server-Serien haben `DTSTART;TZID=Europe/
+Berlin:` (lokale Wandzeit); OX identifiziert das zu löschende Vorkommen über die
+Recurrence-ID in DIESER TZID. Wir schrieben EXDATE aber in UTC (`…Z`) -> kein Match.
+- **Fix** (`data/ical.ts` + `types.ts`): `CalEvent.tzid` beim Parsen merken
+  (DTSTART-TZID); buildICalendar schreibt DTSTART/DTEND/EXDATE dann in TZID-Form
+  mit lokaler Wandzeit (`formatLocalNaive`) statt UTC. Ohne tzid (UTC-/Calzi-
+  Termine) bleibt alles wie bisher in UTC. Annahme: Geräte-TZ == Serien-TZ
+  (gilt fuer den Nutzer); kein VTIMEZONE mitgeschrieben (OX kennt Olson-TZIDs).
+- FALLS WEITER Fehler: Server-Antworttext steht in der Meldung -> schicken.
+
 ## Kalenderfarben + Serien-Erinnerungen (2026-06-18, Teil 2)
 - **Kalenderfarbe änderbar**: in Einstellungen → KALENDER auf den Farbpunkt
   tippen -> ColorRow klappt auf. Store-Action `setCalendarColor(id,color)`

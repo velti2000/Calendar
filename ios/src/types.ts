@@ -36,6 +36,12 @@ export interface CalEvent {
   // prueft diese beim Schreiben: ein Update MUSS eine >= so hohe SEQUENCE haben
   // wie die gespeicherte, sonst HTTP 412 CAL-4121 ("newer version exists").
   sequence?: number;
+  // Zeitzone (TZID) des Serien-/Termin-Beginns, wie vom Server geliefert
+  // (z.B. "Europe/Berlin"). Wird beim Zurueckschreiben fuer DTSTART/DTEND/EXDATE
+  // beibehalten, damit Open-Xchange die Vorkommen einer Serie wiedererkennt
+  // (EXDATE muss exakt der Recurrence-ID in dieser TZID entsprechen → CAL-4061).
+  // Fehlt (z.B. bei UTC-/Calzi-eigenen Terminen) -> Schreiben in UTC.
+  tzid?: string;
   // Felder fuer externe, NUR-LESENDE Quellen (z.B. Todoist). Solche Eintraege
   // werden niemals zum CalDAV-Server geschrieben oder im Editor geaendert.
   source?: "todoist" | "reminders"; // Herkunft (fehlt = normaler Kalendertermin)
