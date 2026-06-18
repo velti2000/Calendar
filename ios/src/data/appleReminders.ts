@@ -46,8 +46,12 @@ export async function fetchReminders(color: string): Promise<CalEvent[]> {
   if (!lists.length) return [];
   const listIds = lists.map((c) => c.id);
 
-  // Nur OFFENE (nicht erledigte) Erinnerungen laden (status = null).
-  const reminders = await Calendar.getRemindersAsync(listIds, null, null, null);
+  // Nur OFFENE (nicht erledigte) Erinnerungen laden. WICHTIG: status = null
+  // wuerde ALLE liefern (auch erledigte!) – deshalb explizit INCOMPLETE.
+  // Geloeschte Erinnerungen gibt EventKit ohnehin nicht mehr zurueck.
+  const reminders = await Calendar.getRemindersAsync(
+    listIds, Calendar.ReminderStatus.INCOMPLETE, null, null
+  );
 
   // Zeitfenster fuer das Aufloesen von Serien (1 Jahr zurueck bis 2 Jahre voraus).
   const now = new Date();
@@ -111,6 +115,10 @@ function icalUtc(d: Date): string {
 
 /** Wandelt eine Erinnerung in ein NUR-LESENDES CalEvent um (oder null ohne Faelligkeit). */
 function mapReminder(r: Calendar.Reminder, color: string): CalEvent | null {
+  // Sicherheitsnetz: erledigte Erinnerungen nie anzeigen (falls doch eine
+  // durchrutscht, obwohl wir nur INCOMPLETE abfragen).
+  if (r.completed) return null;
+
   // dueDate ist das Faelligkeitsdatum (mit oder ohne Uhrzeit).
   const due = r.dueDate ? new Date(r.dueDate) : null;
   if (!due || isNaN(due.getTime())) return null;

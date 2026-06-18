@@ -87,6 +87,23 @@ export default function SettingsScreen() {
     }
   };
 
+  /** iPhone-Erinnerungen jetzt neu vom Gerät laden (manueller Sync-Button). */
+  const refreshReminders = async () => {
+    if (!settings.remindersEnabled) {
+      Alert.alert("Nicht aktiv", "Bitte zuerst „Erinnerungen anzeigen“ einschalten.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await syncReminders();
+      Alert.alert("Aktualisiert", `${useStore.getState().reminderItems.length} offene Erinnerungen geladen.`);
+    } catch (err: any) {
+      Alert.alert("Erinnerungen-Fehler", String(err?.message ?? err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   /** iPhone-Erinnerungen ein-/ausschalten (beim Einschalten Berechtigung anfragen). */
   const toggleReminders = async (enabled: boolean) => {
     if (enabled) {
@@ -464,6 +481,11 @@ export default function SettingsScreen() {
 
         <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>Farbe</Text>
         <ColorRow value={settings.remindersColor} onChange={(c) => changeOverlayColor("reminders", c)} />
+
+        <ActionButton
+          label={busy ? "Lade …" : "Erinnerungen jetzt aktualisieren"}
+          onPress={refreshReminders} theme={theme} disabled={busy}
+        />
       </View>
 
       {/* ---------- Sicherheit ---------- */}

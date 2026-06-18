@@ -34,6 +34,21 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Erinnerungen + Wochenansicht (2026-06-18)
+- **iPhone-Erinnerungen, erledigte ausblenden**: `data/appleReminders.ts` lud mit
+  `getRemindersAsync(..., null, ...)` ALLE (auch erledigte!). Jetzt explizit
+  `Calendar.ReminderStatus.INCOMPLETE` + Sicherheitsnetz `if (r.completed) return null`.
+  (Gelöschte gibt EventKit ohnehin nicht zurück.)
+- **Sync-Button für Erinnerungen** in Einstellungen → iPHONE-ERINNERUNGEN
+  („Erinnerungen jetzt aktualisieren", ruft `syncReminders`).
+- **Wochenansicht – Mehrtages-Balken**: ganztägige Termine über mehrere Tage
+  laufen jetzt als durchgehender Balken (eigene `computeWeekBars`/`isMultiDayAllDay`
+  in `WeekScreen.tsx`, gleiche Logik wie Monatsansicht; absolute Balken über den
+  7 Spalten via gemessener `colWidth`; eintägige bleiben Chips).
+- **Wochenansicht – Wochen-Wischen** mit Entprellung: Gesture.Pan wie in
+  DayScreen (`swipingRef`, `activeOffsetX`, `failOffsetY`, 150ms-onFinalize) →
+  links/rechts wechselt die Woche, ohne den „neuer Termin"-Dialog auszulösen.
+
 ## 412 CAL-4121 – ECHTE URSACHE: SEQUENCE (2026-06-17, Teil 4)
 Frischer ETag (Teil 3) hat den Konflikt NICHT geloest -> es ist KEIN HTTP-ETag-
 Problem. Open-Xchange prueft die **iCalendar-`SEQUENCE`** (Revisionsnummer):
