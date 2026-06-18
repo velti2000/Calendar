@@ -46,6 +46,10 @@ Recurrence-ID in DIESER TZID. Wir schrieben EXDATE aber in UTC (`…Z`) -> kein 
   Termine) bleibt alles wie bisher in UTC. Annahme: Geräte-TZ == Serien-TZ
   (gilt fuer den Nutzer); kein VTIMEZONE mitgeschrieben (OX kennt Olson-TZIDs).
 - FALLS WEITER Fehler: Server-Antworttext steht in der Meldung -> schicken.
+- NACHTRAG: TZID-EXDATE allein reichte nicht (kein Fehler, aber OX loeschte das
+  Vorkommen NICHT). Loesung: zusaetzlich den **VTIMEZONE-Block** aus der Server-.ics
+  bewahren (`CalEvent.vtimezone`, in parseICalendar roh gesammelt) und beim
+  Schreiben VOR dem VEVENT mitsenden (buildICalendar), damit OX die TZID aufloest.
 
 ## Kalenderfarben + Serien-Erinnerungen (2026-06-18, Teil 2)
 - **Kalenderfarbe änderbar**: in Einstellungen → KALENDER auf den Farbpunkt

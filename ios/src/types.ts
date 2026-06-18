@@ -42,6 +42,11 @@ export interface CalEvent {
   // (EXDATE muss exakt der Recurrence-ID in dieser TZID entsprechen → CAL-4061).
   // Fehlt (z.B. bei UTC-/Calzi-eigenen Terminen) -> Schreiben in UTC.
   tzid?: string;
+  // Roher VTIMEZONE-Block aus der Server-.ics (Definition der Zeitzone inkl.
+  // Sommerzeit-Regeln). Wird beim Zurueckschreiben unveraendert mitgesendet,
+  // damit der Server TZID-Referenzen (DTSTART/EXDATE) korrekt aufloest – sonst
+  // ignoriert Open-Xchange das EXDATE und das Vorkommen wird NICHT geloescht.
+  vtimezone?: string;
   // Felder fuer externe, NUR-LESENDE Quellen (z.B. Todoist). Solche Eintraege
   // werden niemals zum CalDAV-Server geschrieben oder im Editor geaendert.
   source?: "todoist" | "reminders"; // Herkunft (fehlt = normaler Kalendertermin)

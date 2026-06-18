@@ -35,7 +35,21 @@ export function parseICalendar(icsText: string, calendarId: string): CalEvent[] 
   let alarmTriggers: ParsedProp[] = [];
   let alarmTrigger: ParsedProp | null = null;
 
+  // VTIMEZONE-Bloecke im ROHEN Zustand sammeln, um sie beim Zurueckschreiben
+  // unveraendert wieder mitzusenden (noetig, damit der Server TZID aufloest).
+  let inTz = false;
+  let tzBuf: string[] = [];
+  const vtimezones: string[] = [];
+
   for (const line of lines) {
+    // VTIMEZONE-Block wortwoertlich puffern (nicht als Event-Properties deuten).
+    if (inTz) {
+      tzBuf.push(line);
+      if (line === "END:VTIMEZONE") { vtimezones.push(tzBuf.join("\r\n")); inTz = false; }
+      continue;
+    }
+    if (line === "BEGIN:VTIMEZONE") { inTz = true; tzBuf = [line]; continue; }
+
     if (line === "BEGIN:VEVENT") {
       current = {};
       alarmTriggers = [];
@@ -64,6 +78,13 @@ export function parseICalendar(icsText: string, calendarId: string): CalEvent[] 
         current[parsed.name] = parsed;
       }
     }
+  }
+
+  // Gesammelte VTIMEZONE-Definition(en) an alle Termine dieser .ics haengen –
+  // wird nur beim Zurueckschreiben von TZID-Terminen wieder ausgegeben.
+  if (vtimezones.length) {
+    const tz = vtimezones.join("\r\n");
+    for (const ev of events) ev.vtimezone = tz;
   }
   return events;
 }
@@ -214,6 +235,14 @@ export function buildICalendar(event: CalEvent): string {
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Calendar iOS//DE",
+  ];
+
+  // Zeitzonen-Definition VOR dem VEVENT ausgeben, damit der Server die
+  // TZID-Referenzen in DTSTART/DTEND/EXDATE aufloesen kann. Nur wenn der Termin
+  // ueberhaupt eine TZID nutzt und wir den Original-Block vom Server haben.
+  if (event.tzid && event.vtimezone) lines.push(event.vtimezone);
+
+  lines.push(
     "BEGIN:VEVENT",
     `UID:${event.uid}`,
     `DTSTAMP:${formatUtc(new Date())}`,
@@ -226,7 +255,7 @@ export function buildICalendar(event: CalEvent): string {
     formatDateProp("DTSTART", event.start, event.allDay, event.tzid),
     formatDateProp("DTEND", event.end, event.allDay, event.tzid),
     `SUMMARY:${escapeText(event.title)}`,
-  ];
+  );
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`);
   if (event.notes) lines.push(`DESCRIPTION:${escapeText(event.notes)}`);
   if (event.rrule) lines.push(`RRULE:${event.rrule}`);
