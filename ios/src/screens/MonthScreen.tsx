@@ -118,11 +118,20 @@ export default function MonthScreen({ navigation }: Props) {
   const syncReminders = useStore((s) => s.syncReminders);
   const todoistTasks = useStore((s) => s.todoistTasks);
   const reminderItems = useStore((s) => s.reminderItems);
+  // iPhone-Erinnerungen fuer die MONATSANSICHT: optional Serien-Erinnerungen
+  // (wiederkehrende) ausblenden. Aufgeloeste Serien-Vorkommen tragen
+  // `recurringMaster` (bzw. als Fallback noch `rrule`).
+  const monthReminders = useMemo(() => {
+    if (!settings.remindersEnabled) return EMPTY;
+    if (!settings.hideRecurringRemindersInMonth) return reminderItems;
+    return reminderItems.filter((r) => !r.recurringMaster && !r.rrule);
+  }, [settings.remindersEnabled, settings.hideRecurringRemindersInMonth, reminderItems]);
+
   // NUR-LESEN-Overlays (Todoist + iPhone-Erinnerungen), je nach Schalter.
   const overlay = useMemo(() => [
     ...(settings.todoistEnabled ? todoistTasks : EMPTY),
-    ...(settings.remindersEnabled ? reminderItems : EMPTY),
-  ], [settings.todoistEnabled, todoistTasks, settings.remindersEnabled, reminderItems]);
+    ...monthReminders,
+  ], [settings.todoistEnabled, todoistTasks, monthReminders]);
 
   const [monthDate, setMonthDate] = useState(new Date());
   const [jumpOpen, setJumpOpen] = useState(false);

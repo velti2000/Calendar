@@ -56,6 +56,8 @@ function defaultSettings(): Settings {
     todoistColor: "#E44332",   // Todoist-Rot
     remindersEnabled: false,
     remindersColor: "#7C3AED", // Violett (klar verschieden von Todoist-Rot)
+    hideRecurringRemindersInMonth: false,
+    calendarColorOverrides: {},
   };
 }
 
@@ -73,6 +75,7 @@ interface StoreState {
   updateEvent: (uid: string, changes: Partial<CalEvent>) => CalEvent | null;
   deleteEvent: (uid: string) => void;
   toggleCalendarVisible: (id: string) => void;
+  setCalendarColor: (id: string, color: string) => void;
   updateSettings: (changes: Partial<Settings>) => void;
   resetToDemo: () => void;
   clearData: () => void;
@@ -140,6 +143,21 @@ export const useStore = create<StoreState>()(
         }));
       },
 
+      /**
+       * Setzt die Farbe eines Kalenders. Wirkt sofort (cal.color) UND wird als
+       * Override in den Settings gemerkt, damit sie den naechsten Server-Sync
+       * ueberlebt (sonst wuerde die Server-Farbe sie wieder ueberschreiben).
+       */
+      setCalendarColor: (id, color) => {
+        set((s) => ({
+          calendars: s.calendars.map((c) => (c.id === id ? { ...c, color } : c)),
+          settings: {
+            ...s.settings,
+            calendarColorOverrides: { ...(s.settings.calendarColorOverrides ?? {}), [id]: color },
+          },
+        }));
+      },
+
       updateSettings: (changes) => {
         set((s) => ({ settings: { ...s.settings, ...changes } }));
       },
@@ -173,9 +191,12 @@ export const useStore = create<StoreState>()(
         try {
           const discovered = await caldav.discoverCalendars(creds);
           const visibleById = new Map(calendars.map((c) => [c.id, c.visible]));
+          const colorOverrides = settings.calendarColorOverrides ?? {};
           const merged = discovered.map((c) => ({
             ...c,
             visible: visibleById.get(c.id) ?? true,
+            // Vom Nutzer gewaehlte Farbe hat Vorrang vor der Server-Farbe.
+            color: colorOverrides[c.id] ?? c.color,
           }));
 
           const allEvents: CalEvent[] = [];

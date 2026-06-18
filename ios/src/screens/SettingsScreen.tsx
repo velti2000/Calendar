@@ -29,7 +29,10 @@ import type { Settings } from "../types";
 
 export default function SettingsScreen() {
   const theme = useTheme();
-  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, resetToDemo, clearData, syncFromServer, syncTodoist, syncReminders } = useStore();
+  const { settings, calendars, events, syncing, updateSettings, toggleCalendarVisible, setCalendarColor, resetToDemo, clearData, syncFromServer, syncTodoist, syncReminders } = useStore();
+
+  // Welcher Kalender hat gerade die Farb-Auswahl offen? (null = keiner)
+  const [colorEditId, setColorEditId] = useState<string | null>(null);
 
   // Fallback, falls ein gespeicherter Zustand das Feld noch nicht kennt.
   const dayStartHour = settings.dayStartHour ?? 6;
@@ -358,32 +361,45 @@ export default function SettingsScreen() {
         {calendars.map((cal) => {
           // Ist dieser Kalender der Standard fuer neue Termine?
           const isDefault = settings.defaultCalendarId === cal.id;
+          const editingColor = colorEditId === cal.id;
           return (
-            <View key={cal.id} style={styles.switchRow}>
-              <View style={styles.calName}>
-                <View style={[styles.dot, { backgroundColor: cal.color }]} />
-                <Text style={[styles.rowLabel, { color: theme.text }]} numberOfLines={1}>{cal.name}</Text>
+            <View key={cal.id}>
+              <View style={styles.switchRow}>
+                <View style={styles.calName}>
+                  {/* Farbpunkt antippen -> Farb-Auswahl auf/zu */}
+                  <Pressable onPress={() => setColorEditId(editingColor ? null : cal.id)} hitSlop={10}>
+                    <View style={[styles.dotTappable, { backgroundColor: cal.color, borderColor: theme.border }]} />
+                  </Pressable>
+                  <Text style={[styles.rowLabel, { color: theme.text }]} numberOfLines={1}>{cal.name}</Text>
+                </View>
+                <View style={styles.calRight}>
+                  {/* Stern = Standardkalender. Nochmal tippen hebt die Auswahl auf. */}
+                  <Pressable
+                    onPress={() => updateSettings({ defaultCalendarId: isDefault ? "" : cal.id })}
+                    hitSlop={8}
+                    style={styles.starBtn}
+                  >
+                    <Text style={{ fontSize: 20, color: isDefault ? theme.accent : theme.textMuted }}>
+                      {isDefault ? "★" : "☆"}
+                    </Text>
+                  </Pressable>
+                  <Switch value={cal.visible} onValueChange={() => toggleCalendarVisible(cal.id)} />
+                </View>
               </View>
-              <View style={styles.calRight}>
-                {/* Stern = Standardkalender. Nochmal tippen hebt die Auswahl auf. */}
-                <Pressable
-                  onPress={() => updateSettings({ defaultCalendarId: isDefault ? "" : cal.id })}
-                  hitSlop={8}
-                  style={styles.starBtn}
-                >
-                  <Text style={{ fontSize: 20, color: isDefault ? theme.accent : theme.textMuted }}>
-                    {isDefault ? "★" : "☆"}
-                  </Text>
-                </Pressable>
-                <Switch value={cal.visible} onValueChange={() => toggleCalendarVisible(cal.id)} />
-              </View>
+              {/* Farb-Auswahl (aufklappbar) */}
+              {editingColor && (
+                <ColorRow
+                  value={cal.color}
+                  onChange={(c) => { setCalendarColor(cal.id, c); setColorEditId(null); }}
+                />
+              )}
             </View>
           );
         })}
         <Text style={[styles.hint, { color: theme.textMuted }]}>
-          ★ markiert den Standardkalender: Bei einem neuen Termin ist dieser
-          Kalender zuerst ausgewählt. Der Schalter rechts blendet die Termine
-          eines Kalenders ein/aus.
+          Tippe auf den Farbpunkt, um die Kalenderfarbe zu ändern. ★ markiert den
+          Standardkalender (bei neuen Terminen vorausgewählt). Der Schalter rechts
+          blendet die Termine eines Kalenders ein/aus.
         </Text>
       </View>
 
@@ -477,6 +493,18 @@ export default function SettingsScreen() {
         <Text style={[styles.hint, { color: theme.textMuted }]}>
           Zeigt fällige Einträge aus der iPhone-App „Erinnerungen“ im Kalender an.
           Es wird nur gelesen – verwaltet werden sie in der Erinnerungen-App.
+        </Text>
+
+        <View style={styles.switchRow}>
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Serien in Monatsansicht ausblenden</Text>
+          <Switch
+            value={settings.hideRecurringRemindersInMonth ?? false}
+            onValueChange={(v) => updateSettings({ hideRecurringRemindersInMonth: v })}
+          />
+        </View>
+        <Text style={[styles.hint, { color: theme.textMuted }]}>
+          Blendet wiederkehrende (Serien-)Erinnerungen NUR in der Monatsansicht aus.
+          Tages- und Wochenansicht zeigen sie weiterhin.
         </Text>
 
         <Text style={[styles.rowLabel, { color: theme.text, marginTop: 10 }]}>Farbe</Text>
@@ -628,6 +656,8 @@ const styles = StyleSheet.create({
   calRight: { flexDirection: "row", alignItems: "center", gap: 10 },
   starBtn: { paddingHorizontal: 2 },
   dot: { width: 12, height: 12, borderRadius: 6 },
+  // Groesserer, antippbarer Farbpunkt zum Aendern der Kalenderfarbe.
+  dotTappable: { width: 20, height: 20, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
   segmentRow: { flexDirection: "row", gap: 8, marginTop: 8 },
   segment: { borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 },
   input: {

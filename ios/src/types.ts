@@ -79,4 +79,10 @@ export interface Settings {
   // iPhone-Erinnerungen (Apple "Erinnerungen") NUR LESEND anzeigen.
   remindersEnabled: boolean;
   remindersColor: string;          // Farbe der Erinnerungs-Eintraege
+  // Serien-Erinnerungen (wiederkehrende iPhone-Erinnerungen) in der
+  // MONATSANSICHT ausblenden (Tag/Woche zeigen sie weiterhin).
+  hideRecurringRemindersInMonth: boolean;
+  // Vom Nutzer gewaehlte Kalenderfarben (Kalender-id -> Hex). Ueberschreibt die
+  // vom Server gelieferte Farbe und bleibt ueber den Sync hinweg erhalten.
+  calendarColorOverrides: Record<string, string>;
 }

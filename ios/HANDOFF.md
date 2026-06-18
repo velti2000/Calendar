@@ -34,6 +34,17 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Kalenderfarben + Serien-Erinnerungen (2026-06-18, Teil 2)
+- **Kalenderfarbe änderbar**: in Einstellungen → KALENDER auf den Farbpunkt
+  tippen -> ColorRow klappt auf. Store-Action `setCalendarColor(id,color)`
+  setzt cal.color sofort UND merkt sie in `settings.calendarColorOverrides`
+  (id->hex). `syncFromServer` wendet die Overrides an (Vorrang vor Server-Farbe),
+  damit die Wahl den Sync überlebt – analog zu `visible`.
+- **Serien-Erinnerungen in Monatsansicht ausblenden**: neuer Schalter
+  `settings.hideRecurringRemindersInMonth` (Einstellungen → iPHONE-ERINNERUNGEN).
+  MonthScreen filtert dann Erinnerungs-Overlays mit `recurringMaster`/`rrule`
+  heraus; Tag/Woche zeigen sie weiterhin.
+
 ## Erinnerungen + Wochenansicht (2026-06-18)
 - **iPhone-Erinnerungen, erledigte ausblenden**: `data/appleReminders.ts` lud mit
   `getRemindersAsync(..., null, ...)` ALLE (auch erledigte!). Jetzt explizit
