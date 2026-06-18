@@ -46,12 +46,13 @@ export async function fetchReminders(color: string): Promise<CalEvent[]> {
   if (!lists.length) return [];
   const listIds = lists.map((c) => c.id);
 
-  // Nur OFFENE (nicht erledigte) Erinnerungen laden. WICHTIG: status = null
-  // wuerde ALLE liefern (auch erledigte!) – deshalb explizit INCOMPLETE.
-  // Geloeschte Erinnerungen gibt EventKit ohnehin nicht mehr zurueck.
-  const reminders = await Calendar.getRemindersAsync(
-    listIds, Calendar.ReminderStatus.INCOMPLETE, null, null
-  );
+  // Alle Erinnerungen laden (status = null). Den Status-Filter INCOMPLETE
+  // benutzen wir BEWUSST NICHT: expo-calendar verlangt dann zwingend ein
+  // start-/endDate-Fenster (sonst Laufzeitfehler), was wiederkehrende oder
+  // datumslose Erinnerungen verschlucken kann. Stattdessen filtern wir erledigte
+  // unten in mapReminder ueber `r.completed` heraus. Geloeschte Erinnerungen
+  // gibt EventKit ohnehin nicht mehr zurueck.
+  const reminders = await Calendar.getRemindersAsync(listIds, null, null, null);
 
   // Zeitfenster fuer das Aufloesen von Serien (1 Jahr zurueck bis 2 Jahre voraus).
   const now = new Date();

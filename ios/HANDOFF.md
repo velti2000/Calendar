@@ -46,10 +46,12 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   heraus; Tag/Woche zeigen sie weiterhin.
 
 ## Erinnerungen + Wochenansicht (2026-06-18)
-- **iPhone-Erinnerungen, erledigte ausblenden**: `data/appleReminders.ts` lud mit
-  `getRemindersAsync(..., null, ...)` ALLE (auch erledigte!). Jetzt explizit
-  `Calendar.ReminderStatus.INCOMPLETE` + Sicherheitsnetz `if (r.completed) return null`.
-  (Gelöschte gibt EventKit ohnehin nicht zurück.)
+- **iPhone-Erinnerungen, erledigte ausblenden**: `data/appleReminders.ts` lud
+  ALLE (auch erledigte!). Fix: `getRemindersAsync(..., null, ...)` (Status NULL!)
+  + Filter `if (r.completed) return null` in mapReminder. WICHTIG: Status
+  `ReminderStatus.INCOMPLETE` NICHT nutzen – expo-calendar verlangt dann zwingend
+  start-/endDate (sonst Laufzeitfehler "must be called with a startDate") und
+  verschluckt datumslose/wiederkehrende. (Gelöschte gibt EventKit eh nicht zurück.)
 - **Sync-Button für Erinnerungen** in Einstellungen → iPHONE-ERINNERUNGEN
   („Erinnerungen jetzt aktualisieren", ruft `syncReminders`).
 - **Wochenansicht – Mehrtages-Balken**: ganztägige Termine über mehrere Tage
