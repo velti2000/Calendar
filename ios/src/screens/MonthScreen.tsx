@@ -21,7 +21,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../navigation";
-import { useStore, getEventsByDay, getVisibleEvents } from "../store/useStore";
+import { useStore, getEventsByDay, getVisibleEvents, quickSyncRange } from "../store/useStore";
 import { rescheduleAll } from "../notifications/reminders";
 import { useTheme } from "../theme/useTheme";
 import {
@@ -137,11 +137,43 @@ export default function MonthScreen({ navigation }: Props) {
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpDate, setJumpDate] = useState(new Date());
 
+  // Lade-Anzeige rot faerben, solange ein VOLLER Sync laeuft (langes Drücken).
+  const [fullSyncActive, setFullSyncActive] = useState(false);
+
   /**
-   * Sync-Button neben der Lupe: synchronisiert ALLE aktiven Quellen –
-   * CalDAV (falls verbunden), Todoist und iPhone-Erinnerungen (falls aktiviert).
+   * KURZ tippen = Schnell-Sync: nur Kalender + iPhone-Erinnerungen, und das nur
+   * fuer ein enges Zeitfenster (letzter Monat bis +3 Monate) -> schnell.
+   * KEIN Todoist. Termine ausserhalb des Fensters bleiben erhalten.
    */
-  const doSync = async () => {
+  const doQuickSync = async () => {
+    if (syncing) return;
+    const s0 = useStore.getState().settings;
+    const hasCaldav = s0.dataSource === "caldav";
+
+    if (!hasCaldav && !s0.remindersEnabled) {
+      Alert.alert(
+        "Nichts zu synchronisieren",
+        "Bitte in den Einstellungen mit mailbox.org verbinden oder iPhone-Erinnerungen aktivieren."
+      );
+      return;
+    }
+    try {
+      const range = quickSyncRange();
+      if (hasCaldav) await syncFromServer(range);
+      if (s0.remindersEnabled) await syncReminders(range);
+      const s = useStore.getState();
+      if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
+    } catch (err: any) {
+      Alert.alert("Sync fehlgeschlagen", String(err?.message ?? err));
+    }
+  };
+
+  /**
+   * LANG drücken (3 s) = voller Sync: kompletter Kalender (1 Jahr zurück bis
+   * 2 Jahre voraus) PLUS Todoist und iPhone-Erinnerungen. Die Lade-Anzeige
+   * erscheint dabei ROT, damit man den vollen Sync erkennt.
+   */
+  const doFullSync = async () => {
     if (syncing) return;
     const s0 = useStore.getState().settings;
     const hasCaldav = s0.dataSource === "caldav";
@@ -153,14 +185,17 @@ export default function MonthScreen({ navigation }: Props) {
       );
       return;
     }
+    setFullSyncActive(true);
     try {
-      if (hasCaldav) await syncFromServer();
+      if (hasCaldav) await syncFromServer();        // voller Bereich
       if (s0.todoistEnabled) await syncTodoist();
       if (s0.remindersEnabled) await syncReminders();
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) await rescheduleAll(s.events, s.calendars);
     } catch (err: any) {
       Alert.alert("Sync fehlgeschlagen", String(err?.message ?? err));
+    } finally {
+      setFullSyncActive(false);
     }
   };
 
@@ -226,10 +261,17 @@ export default function MonthScreen({ navigation }: Props) {
         <Text style={[styles.title, { color: theme.text }]}>{formatMonthTitle(monthDate)}</Text>
 
         <View style={[styles.topBarSide, styles.topBarRight]}>
-          {/* Synchronisieren – links neben der Lupe */}
-          <Pressable style={styles.iconBtn} onPress={doSync} disabled={syncing}>
+          {/* Synchronisieren – kurz tippen = Schnell-Sync, 3 s halten = voller
+              Sync (Anzeige dann rot). */}
+          <Pressable
+            style={styles.iconBtn}
+            onPress={doQuickSync}
+            onLongPress={doFullSync}
+            delayLongPress={3000}
+            disabled={syncing}
+          >
             {syncing
-              ? <ActivityIndicator size="small" color={theme.textMuted} />
+              ? <ActivityIndicator size="small" color={fullSyncActive ? theme.danger : theme.textMuted} />
               : <Text style={[styles.icon, { color: theme.textMuted }]}>↻</Text>}
           </Pressable>
           <Pressable style={styles.iconBtn} onPress={() => navigation.navigate("Search")}>

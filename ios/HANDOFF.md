@@ -34,6 +34,21 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Editor-Dauer + Schnell/Voll-Sync (2026-06-19)
+- **Editor**: Wird der Beginn (Tag/Uhrzeit) geändert, schiebt sich das Ende um
+  dieselbe Differenz mit -> Termindauer bleibt gleich (EventEditor start onChange).
+- **Sync-Knopf zweistufig** (MonthScreen):
+  - KURZ tippen = Schnell-Sync: `syncFromServer(quickSyncRange())` (nur letzter
+    Monat bis +3 Monate) + iPhone-Erinnerungen, KEIN Todoist. `quickSyncRange()`
+    in useStore. Schnell-Sync MERGT per UID (behält Termine außerhalb des
+    Fensters; auf Server gelöschte außerhalb werden erst beim Voll-Sync entfernt).
+  - LANG drücken 3 s (`delayLongPress={3000}`) = Voll-Sync: ganzer Bereich +
+    Todoist + Erinnerungen; Lade-Anzeige ROT (`fullSyncActive` -> theme.danger).
+  - `caldav.fetchEvents` + `fetchReminders` + `syncFromServer`/`syncReminders`
+    haben jetzt optionalen `range`-Parameter.
+- **App-Start** macht jetzt Schnell-Sync (App.tsx), nicht mehr voll (schneller;
+  Todoist nur noch beim manuellen Voll-Sync, bleibt sonst aus letztem Stand).
+
 ## Serien-Vorkommen löschen: TZID/EXDATE (2026-06-18, Teil 3)
 Einzelnes Vorkommen aus einer **vom Server geladenen** Serie löschen -> HTTP 400
 `CAL-4061` ("targeted occurrence is not part of the appointment series"). Bei

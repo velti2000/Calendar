@@ -180,10 +180,17 @@ async function listCalendars(homeUrl: string, creds: Credentials): Promise<Calen
  * WICHTIG: Zeitbereich eingrenzen (1 Jahr zurueck bis 2 Jahre voraus), sonst
  * versucht der Server die KOMPLETTE Historie zu liefern -> Timeout/502.
  */
-export async function fetchEvents(calendarUrl: string, calendarId: string, creds: Credentials): Promise<CalEvent[]> {
+export async function fetchEvents(
+  calendarUrl: string,
+  calendarId: string,
+  creds: Credentials,
+  range?: { start: Date; end: Date }
+): Promise<CalEvent[]> {
   const now = new Date();
-  const rangeStart = icalUtc(new Date(now.getFullYear() - 1, 0, 1));
-  const rangeEnd = icalUtc(new Date(now.getFullYear() + 2, 11, 31, 23, 59, 59));
+  // Ohne Bereich: 1 Jahr zurueck bis 2 Jahre voraus (voller Sync). Mit Bereich
+  // (Schnell-Sync) nur das uebergebene, engere Fenster -> deutlich schneller.
+  const rangeStart = icalUtc(range?.start ?? new Date(now.getFullYear() - 1, 0, 1));
+  const rangeEnd = icalUtc(range?.end ?? new Date(now.getFullYear() + 2, 11, 31, 23, 59, 59));
 
   const reportBody = `<?xml version="1.0" encoding="utf-8" ?>
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">

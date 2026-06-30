@@ -35,7 +35,10 @@ export async function requestRemindersPermission(): Promise<boolean> {
  * CalEvents zurueck. Liefert leere Liste, wenn keine Berechtigung vorliegt.
  * @param color Farbe, in der die Erinnerungen dargestellt werden
  */
-export async function fetchReminders(color: string): Promise<CalEvent[]> {
+export async function fetchReminders(
+  color: string,
+  range?: { start: Date; end: Date }
+): Promise<CalEvent[]> {
   if (Platform.OS !== "ios") return [];
 
   const perm = await Calendar.getRemindersPermissionsAsync();
@@ -54,10 +57,11 @@ export async function fetchReminders(color: string): Promise<CalEvent[]> {
   // gibt EventKit ohnehin nicht mehr zurueck.
   const reminders = await Calendar.getRemindersAsync(listIds, null, null, null);
 
-  // Zeitfenster fuer das Aufloesen von Serien (1 Jahr zurueck bis 2 Jahre voraus).
+  // Zeitfenster fuer das Aufloesen von Serien. Ohne Bereich: 1 Jahr zurueck bis
+  // 2 Jahre voraus. Mit Bereich (Schnell-Sync) nur das engere Fenster.
   const now = new Date();
-  const windowStart = new Date(now.getFullYear() - 1, 0, 1);
-  const windowEnd = new Date(now.getFullYear() + 2, 11, 31);
+  const windowStart = range?.start ?? new Date(now.getFullYear() - 1, 0, 1);
+  const windowEnd = range?.end ?? new Date(now.getFullYear() + 2, 11, 31);
 
   const events: CalEvent[] = [];
   for (const r of reminders) {

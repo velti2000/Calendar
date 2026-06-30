@@ -311,9 +311,11 @@ export default function EventEditorScreen({ route, navigation }: Props) {
         locale="de-DE"
         onChange={(_, d) => {
           if (!d) return;
+          // Ende um DIESELBE Differenz mitschieben, damit die Dauer gleich bleibt
+          // (z.B. Beginn 1 Tag spaeter -> Ende ebenfalls 1 Tag spaeter).
+          const deltaMs = d.getTime() - start.getTime();
           setStart(d);
-          // Ende automatisch mitschieben, wenn es sonst vor dem Beginn laege.
-          if (end <= d) setEnd(new Date(d.getTime() + 60 * 60 * 1000));
+          setEnd(new Date(end.getTime() + deltaMs));
         }}
       />
 

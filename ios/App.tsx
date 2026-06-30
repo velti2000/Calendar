@@ -14,7 +14,7 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "./src/navigation";
-import { useStore } from "./src/store/useStore";
+import { useStore, quickSyncRange } from "./src/store/useStore";
 import { rescheduleAll } from "./src/notifications/reminders";
 
 import MonthScreen from "./src/screens/MonthScreen";
@@ -31,21 +31,21 @@ export default function App() {
   const themeSetting = useStore((s) => s.settings.theme);
   const dark = themeSetting === "dark" || (themeSetting === "auto" && systemScheme === "dark");
 
-  // Beim App-Start: erst still vom Server synchronisieren (falls CalDAV aktiv),
-  // danach die Erinnerungen neu planen (falls aktiviert).
+  // Beim App-Start: SCHNELL-Sync (enges Zeitfenster) – Kalender + iPhone-
+  // Erinnerungen. Bewusst KEIN Todoist und kein voller Bereich, damit der Start
+  // schnell bleibt; den vollen Sync (inkl. Todoist) startet man per langem Druck
+  // auf den Sync-Knopf. Danach die Erinnerungen neu planen (falls aktiviert).
   useEffect(() => {
     (async () => {
-      const { settings, syncFromServer, syncTodoist, syncReminders } = useStore.getState();
+      const { settings, syncFromServer, syncReminders } = useStore.getState();
+      const range = quickSyncRange();
       if (settings.dataSource === "caldav") {
         // Fehler hier nicht stoerend melden – die App zeigt einfach den
         // letzten lokalen Stand; manueller Sync geht in den Einstellungen.
-        await syncFromServer().catch(() => {});
-      }
-      if (settings.todoistEnabled) {
-        await syncTodoist().catch(() => {}); // Todoist-Aufgaben (rein lesend) holen
+        await syncFromServer(range).catch(() => {});
       }
       if (settings.remindersEnabled) {
-        await syncReminders().catch(() => {}); // iPhone-Erinnerungen (rein lesend) holen
+        await syncReminders(range).catch(() => {}); // iPhone-Erinnerungen (rein lesend)
       }
       const s = useStore.getState();
       if (s.settings.notificationsEnabled) {

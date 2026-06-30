@@ -80,11 +80,24 @@ interface StoreState {
   resetToDemo: () => void;
   clearData: () => void;
 
-  // CalDAV
-  syncFromServer: () => Promise<void>;
+  // CalDAV. Mit `range` = Schnell-Sync (nur das Fenster laden, Bestehendes
+  // ausserhalb behalten); ohne = voller Sync (alles ersetzen).
+  syncFromServer: (range?: { start: Date; end: Date }) => Promise<void>;
   // Externe Quellen (rein lesend)
   syncTodoist: () => Promise<void>;
-  syncReminders: () => Promise<void>;
+  syncReminders: (range?: { start: Date; end: Date }) => Promise<void>;
+}
+
+/**
+ * Zeitfenster fuer den Schnell-Sync: letzter Monat bis Ende +3 Monate.
+ * Bewusst eng gehalten, damit Server-Abfrage und Serien-Aufloesung schnell sind.
+ */
+export function quickSyncRange(): { start: Date; end: Date } {
+  const now = new Date();
+  return {
+    start: new Date(now.getFullYear(), now.getMonth() - 1, 1),               // 1. des Vormonats
+    end: new Date(now.getFullYear(), now.getMonth() + 4, 0, 23, 59, 59),     // letzter Tag in +3 Monaten
+  };
 }
 
 /** Erzeugt eine einfache, eindeutige UID fuer neue Termine. */
@@ -182,7 +195,7 @@ export const useStore = create<StoreState>()(
        * Sync Server -> App: Kalender entdecken, Termine laden, Daten ersetzen.
        * Die Sichtbarkeits-Auswahl bereits bekannter Kalender bleibt erhalten.
        */
-      syncFromServer: async () => {
+      syncFromServer: async (range) => {
         const { settings, calendars } = get();
         const creds = await getCredentials();
         if (!creds) throw new Error("Keine Zugangsdaten hinterlegt (Einstellungen).");
@@ -201,14 +214,24 @@ export const useStore = create<StoreState>()(
 
           const allEvents: CalEvent[] = [];
           for (const cal of merged) {
-            const events = await caldav.fetchEvents(cal.url!, cal.id, creds);
+            const events = await caldav.fetchEvents(cal.url!, cal.id, creds, range);
             allEvents.push(...events);
           }
 
-          set({
-            calendars: merged,
-            events: allEvents,
-            settings: { ...settings, dataSource: "caldav" },
+          set((s) => {
+            let events: CalEvent[];
+            if (range) {
+              // SCHNELL-Sync: nur die geladenen (per UID) ersetzen/ergaenzen,
+              // alles ausserhalb des Fensters unveraendert behalten. (Auf dem
+              // Server geloeschte Termine ausserhalb werden erst beim vollen
+              // Sync entfernt – bewusster Kompromiss fuer Tempo.)
+              const fetchedUids = new Set(allEvents.map((e) => e.uid));
+              events = [...s.events.filter((e) => !fetchedUids.has(e.uid)), ...allEvents];
+            } else {
+              // VOLLER Sync: kompletter Ersatz (entfernt auch geloeschte).
+              events = allEvents;
+            }
+            return { calendars: merged, events, settings: { ...settings, dataSource: "caldav" } };
           });
         } finally {
           set({ syncing: false });
@@ -232,10 +255,10 @@ export const useStore = create<StoreState>()(
        * Laedt iPhone-Erinnerungen (rein lesend) und legt sie als Overlay ab.
        * Ist die Funktion aus oder keine Berechtigung vorhanden, wird geleert.
        */
-      syncReminders: async () => {
+      syncReminders: async (range) => {
         const { settings } = get();
         if (!settings.remindersEnabled) { set({ reminderItems: [] }); return; }
-        const items = await fetchReminders(settings.remindersColor);
+        const items = await fetchReminders(settings.remindersColor, range);
         set({ reminderItems: items });
       },
     }),
