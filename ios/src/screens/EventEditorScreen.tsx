@@ -29,20 +29,44 @@ type Props = NativeStackScreenProps<RootStackParamList, "EventEditor">;
 const REMINDER_OPTIONS = [
   { label: "Keine", value: -1 },
   { label: "Zum Termin", value: 0 },
-  { label: "10 Min", value: 10 },
+  { label: "15 Min", value: 15 },
   { label: "30 Min", value: 30 },
   { label: "1 Std", value: 60 },
   { label: "6 Std", value: 360 },
   { label: "12 Std", value: 720 },
   { label: "1 Tag", value: 1440 },
+  { label: "7 Tage", value: 10080 },
 ];
 
 const REMINDER_PRESET_VALUES = REMINDER_OPTIONS.map((o) => o.value);
 
-/** Minuten -> Datum mit passender Stunde/Minute (fuer das Zeit-Wählrad). */
-function minutesToWheelDate(total: number): Date {
-  const d = new Date(2000, 0, 1, Math.floor(total / 60) % 24, total % 60, 0);
-  return d;
+/** Obergrenze der frei einstellbaren Erinnerung: 30 Tage (in Minuten). */
+const MAX_CUSTOM_REMINDER = 30 * 24 * 60;
+
+/** Zerlegt Minuten in Tage/Stunden/Minuten (fuer die freie Eingabe). */
+function splitMinutes(total: number): { days: number; hours: number; mins: number } {
+  const t = Math.max(0, total);
+  return {
+    days: Math.floor(t / (24 * 60)),
+    hours: Math.floor((t % (24 * 60)) / 60),
+    mins: t % 60,
+  };
+}
+
+/** Baut aus Tagen/Stunden/Minuten wieder die Gesamtminuten (auf 30 Tage begrenzt). */
+function joinMinutes(days: number, hours: number, mins: number): number {
+  const total = days * 24 * 60 + hours * 60 + mins;
+  return Math.min(MAX_CUSTOM_REMINDER, Math.max(0, total));
+}
+
+/** Lesbarer Text wie "2 Tage 3 Std 30 Min vorher" (leere Teile weglassen). */
+function formatReminderLabel(total: number): string {
+  const { days, hours, mins } = splitMinutes(total);
+  const parts: string[] = [];
+  if (days) parts.push(`${days} ${days === 1 ? "Tag" : "Tage"}`);
+  if (hours) parts.push(`${hours} Std`);
+  if (mins) parts.push(`${mins} Min`);
+  return parts.length ? `${parts.join(" ")} vorher` : "Zum Termin";
 }
 
 export default function EventEditorScreen({ route, navigation }: Props) {
@@ -348,7 +372,7 @@ export default function EventEditorScreen({ route, navigation }: Props) {
             </Pressable>
           );
         })}
-        {/* Frei einstellbar: blendet Stunden-/Minuten-Wählräder ein */}
+        {/* Frei einstellbar: blendet Tage-/Stunden-/Minuten-Stepper ein (bis 30 Tage) */}
         <Pressable
           style={[styles.chip, { borderColor: theme.accent }, customReminder && { backgroundColor: theme.accent }]}
           onPress={() => {
@@ -361,21 +385,31 @@ export default function EventEditorScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      {customReminder && (
-        <View style={styles.customReminderRow}>
-          <Text style={[styles.customReminderLabel, { color: theme.text }]}>
-            {Math.floor(reminder / 60)} Std {reminder % 60} Min vorher
-          </Text>
-          <DateTimePicker
-            value={minutesToWheelDate(reminder)}
-            mode="time"
-            display="spinner"
-            locale="de-DE"
-            is24Hour
-            onChange={(_, d) => { if (d) setReminder(d.getHours() * 60 + d.getMinutes()); }}
-          />
-        </View>
-      )}
+      {customReminder && (() => {
+        // Frei einstellbar: Tage (0–30), Stunden (0–23), Minuten (in 5er-Schritten).
+        const { days, hours, mins } = splitMinutes(reminder);
+        return (
+          <View style={styles.customReminderRow}>
+            <Text style={[styles.customReminderLabel, { color: theme.text }]}>
+              {formatReminderLabel(reminder)}
+            </Text>
+            <View style={styles.customSteppers}>
+              <UnitStepper
+                label="Tage" value={days} min={0} max={30} step={1}
+                onChange={(v) => setReminder(joinMinutes(v, hours, mins))}
+              />
+              <UnitStepper
+                label="Std" value={hours} min={0} max={23} step={1}
+                onChange={(v) => setReminder(joinMinutes(days, v, mins))}
+              />
+              <UnitStepper
+                label="Min" value={mins} min={0} max={55} step={5}
+                onChange={(v) => setReminder(joinMinutes(days, hours, v))}
+              />
+            </View>
+          </View>
+        );
+      })()}
 
       <Text style={[styles.label, { color: theme.textMuted }]}>Ort</Text>
       <TextInput
@@ -397,6 +431,39 @@ export default function EventEditorScreen({ route, navigation }: Props) {
         </Pressable>
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Kleiner −/Wert/+ Stepper mit Beschriftung (Tage/Std/Min der freien Erinnerung).
+ * Am Rand angekommen sind die Knoepfe ausgegraut und gesperrt.
+ */
+function UnitStepper({ label, value, min, max, step, onChange }: {
+  label: string; value: number; min: number; max: number; step: number;
+  onChange: (v: number) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.unitStepper}>
+      <Text style={[styles.unitLabel, { color: theme.textMuted }]}>{label}</Text>
+      <View style={styles.unitRow}>
+        <Pressable
+          style={[styles.unitBtn, { borderColor: theme.accent, opacity: value <= min ? 0.35 : 1 }]}
+          disabled={value <= min}
+          onPress={() => onChange(Math.max(min, value - step))}
+        >
+          <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>−</Text>
+        </Pressable>
+        <Text style={[styles.unitValue, { color: theme.text }]}>{value}</Text>
+        <Pressable
+          style={[styles.unitBtn, { borderColor: theme.accent, opacity: value >= max ? 0.35 : 1 }]}
+          disabled={value >= max}
+          onPress={() => onChange(Math.min(max, value + step))}
+        >
+          <Text style={{ color: theme.accent, fontSize: 18, fontWeight: "600" }}>+</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -423,9 +490,20 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 5,
   },
-  // Bereich der "Frei…"-Erinnerung mit Stunden-/Minuten-Wählrad.
+  // Bereich der "Frei…"-Erinnerung mit Tage-/Stunden-/Minuten-Steppern.
   customReminderRow: { marginTop: 8, alignItems: "center" },
-  customReminderLabel: { fontSize: 14, fontWeight: "500", marginBottom: -4 },
+  customReminderLabel: { fontSize: 14, fontWeight: "500", marginBottom: 8 },
+  // Die drei Stepper nebeneinander (Tage · Std · Min).
+  customSteppers: { flexDirection: "row", gap: 14, justifyContent: "center" },
+  unitStepper: { alignItems: "center" },
+  unitLabel: { fontSize: 11, fontWeight: "600", marginBottom: 3 },
+  unitRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  // Die −/+ Knoepfe; `width`/`height` bestimmen ihre Groesse.
+  unitBtn: {
+    borderWidth: 1.5, borderRadius: 8, width: 32, height: 32,
+    alignItems: "center", justifyContent: "center",
+  },
+  unitValue: { fontSize: 16, fontWeight: "600", minWidth: 30, textAlign: "center" },
   // Zeile "Ganztägig" mit Schalter rechts.
   switchRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 16,

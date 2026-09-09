@@ -34,6 +34,16 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
   über Mitternacht möglich (`utils/timeBands.ts`, `components/HatchBand.tsx`).
 - Einstellbar: Theme, Nav-Position, Schriftgröße Termine, Start-Stunde Tag/Woche.
 
+## Erinnerungs-Optionen erweitert (2026-06-19, Teil 2)
+- Presets im Termin-Editor jetzt: Keine · Zum Termin · **15 Min** (statt 10) ·
+  30 Min · 1 Std · 6 Std · 12 Std · 1 Tag · **7 Tage** (10080 Min).
+- **„Frei…"** kann jetzt bis **30 Tage** (vorher max. 23:59, weil ein
+  DateTimePicker-Zeitrad genutzt wurde). Ersetzt durch drei eigene Stepper
+  (`UnitStepper`: Tage 0–30, Std 0–23, Min 0–55 in 5er-Schritten) +
+  `splitMinutes`/`joinMinutes`/`formatReminderLabel` in EventEditorScreen.
+  Anzeige z.B. „2 Tage 3 Std 30 Min vorher".
+- Hinweis: iOS plant weiterhin max. 60 Benachrichtigungen (notifications/reminders.ts).
+
 ## Editor-Dauer + Schnell/Voll-Sync (2026-06-19)
 - **Editor**: Wird der Beginn (Tag/Uhrzeit) geändert, schiebt sich das Ende um
   dieselbe Differenz mit -> Termindauer bleibt gleich (EventEditor start onChange).
