@@ -18,8 +18,10 @@ macOS 26 / Xcode 26 laufen auf Intel NICHT → **Expo SDK darf höchstens 54 sei
 - **JS-Änderungen** (das meiste): im laufenden `npx expo start`-Terminal **`r`** drücken.
 - **Native Änderungen** (neues Modul, Icon, Info.plist): `npx expo run:ios` (voller Rebuild).
 - Build muss OHNE Sandbox laufen (CocoaPods braucht Netz); `LANG=en_US.UTF-8 CI=1`.
-- Aufs echte iPhone (iOS 26): lokal NUR über AltStore/AltServer (gratis, 7 Tage) oder
-  EAS Build (braucht 99-€-Account). Direkt per Xcode geht nicht (Intel/iOS-26-Sperre).
+- Aufs echte iPhone (iOS 27): kein „Run" direkt aus Xcode (Intel/Xcode-16.4-Sperre).
+  IPA bauen mit `./tools/build-ipa.sh`, dann installieren per AltStore (Hauptweg)
+  oder per Drag & Drop in den Finder (Notlösung ohne AltServer). Gratis-Apple-ID →
+  7 Tage gültig. Komplette Anleitung + Troubleshooting: `IOS-SIDELOAD-DEPLOYMENT.md`.
 - Verifikation in dieser Repo: `./node_modules/.bin/tsc --noEmit` und
   `npx expo export --platform ios --output-dir /tmp/x` (beide müssen durchlaufen).
 
